@@ -8,14 +8,16 @@
 map_variable2species <- function(
   # define function variables
   infile_lyr #.tif
-  ,infiles_pts #.rds # path to the point shapefile (can be a vector with multiple paths for more than one species)
+  ,infiles_pts #.rds # path to the point shapefiles
+  ,ids # vector of ID names
   ,outfile_name # name of output table (NO EXTENTION). The file is saved in csv and rds formats
   ,NC = 1 # number of cores to use
   ,dir_tmp = dir_(paste0('tmp',sample(1:10**5,1))) # set temporary directory for calculations, if not specified a random one in used
 ){
   
   #load packages
-  libinv(c('raster','foreach','parallel','valerioUtils'))
+  library('valerioUtils')
+  libinv(c('raster','foreach','parallel'))
   
   # set raster package tmp dir
   rasterOptions(tmpdir = dir_tmp)
@@ -40,13 +42,14 @@ map_variable2species <- function(
       
       # return the data as data.frame
       return(
-        cbind(data.frame(IUCN_ID = id, no.grids = length(val), mean = mean(val), sd = sd(val)),
+        cbind(data.frame(no.grids = length(val), mean = mean(val), sd = sd(val)),
               t(as.data.frame(q)))
       )
       
-    },infiles_pts,SIMPLIFY = F,mc.cores = ncores)
+    },infiles_pts,SIMPLIFY = F,mc.cores = NC)
   )
   row.names(t_range) <- NULL
+  t_range <- cbind(data.frame(ID = ids),t_range)
   #---------------------------------------------------------------------------------------------
   
   # save results
