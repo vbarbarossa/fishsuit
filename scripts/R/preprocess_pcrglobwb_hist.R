@@ -1,178 +1,171 @@
 #sbatch --array=1-5
 # one for each rcp*climate model
+g <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
 
-slurm_arrayid<-Sys.getenv("SLURM_ARRAY_TASK_ID")
-nodenr<-as.numeric(slurm_arrayid)
+source('config.R'); # always load as functions are loaded within this script
 
-for(g in nodenr:nodenr){
-  
-  source('config.R'); # always load as functions are loaded within this script
-  
-  libinv(c('raster','foreach'))
-  
-  clmod <- climate_models[g]
-  scen <- 'hist'
-  
-  dir_pcrglobwb_out <- dir_(paste0(dir_model,clmod,'/pcrglobwb_processed/'))
-  
-  dir_src <- paste0(dir_src_pcrglobwb,'output_',clmod,'_',scen,'_mergetime/')
-  
-  # -------------
-  
-  # assign time span
-  if(scen == 'hist'){
-    if(clmod == 'E2O'){
-      years <- timespan_hist
-      start_year <- 1979 #based on pcrglobwb output files
-    }else{
-      years <- timespan_hist
-      start_year <- 1951 #based on pcrglobwb output files
-    }
-    
+libinv(c('raster','foreach'))
+
+clmod <- climate_models[g]
+scen <- 'hist'
+
+dir_pcrglobwb_out <- dir_(paste0(dir_model,clmod,'/pcrglobwb_processed/'))
+
+dir_src <- paste0(dir_src_pcrglobwb,'output_',clmod,'_',scen,'_mergetime/')
+
+# -------------
+
+# assign time span
+if(scen == 'hist'){
+  if(clmod == 'E2O'){
+    years <- timespan_hist
+    start_year <- 1979 #based on pcrglobwb output files
   }else{
-    years <- timespan_scen
-    start_year <- 2006 #based on pcrglobwb output files
+    years <- timespan_hist
+    start_year <- 1951 #based on pcrglobwb output files
   }
   
-  # number of weeks in a year
-  no.weeks <- 52
+}else{
+  years <- timespan_scen
+  start_year <- 2006 #based on pcrglobwb output files
+}
+
+# number of weeks in a year
+no.weeks <- 52
+
+# to make it more dynamic, later on can call an extra script 
+# where all the formulas for different metrics are store 
+# and compute only metrics requested by the user
+
+# metrics
+# mi: annual minimum weekly flow
+# zf: zero-flow weeks
+# cv: coefficient of variation
+# ff: flood frequncy
+varsQ <- c('Qmi','Qzf','Qcv','Qav')#'ff' once available
+varsT <- c('Tma','Tcv')
+
+calc_metrics <- function(x){
   
-  # to make it more dynamic, later on can call an extra script 
-  # where all the formulas for different metrics are store 
-  # and compute only metrics requested by the user
+  area <- areas[x]
   
-  # metrics
-  # mi: annual minimum weekly flow
-  # zf: zero-flow weeks
-  # cv: coefficient of variation
-  # ff: flood frequncy
-  varsQ <- c('Qmi','Qzf','Qcv','Qav')#'ff' once available
-  varsT <- c('Tma','Tcv')
+  dir_out <- dir_( # create areas directories inside clmod rirectory
+    paste0(dir_pcrglobwb_out,'/',area,'/' )
+  )
   
-  calc_metrics <- function(x){
+  Qfile <- list.files(paste0(dir_src,area,'/netcdf/'),pattern = 'discharge_weekAvg_output')
+  Tfile <- list.files(paste0(dir_src,area,'/netcdf/'),pattern = 'waterTemp_weekAvg_output')
+  
+  # create list of brick-metrics to store the output of each year
+  brickQ <- brick(raster(paste0(dir_src,area,'/netcdf/',Qfile),band=1))
+  brickT <- brick(raster(paste0(dir_src,area,'/netcdf/',Tfile),band=1))
+  res <- foreach(i = varsQ) %do% brickQ
+  res <- c(res,foreach(i = varsT) %do% brickT)
+  names(res) <- c(varsQ,varsT)
+  
+  # loop thorugh years and calculate the metrics
+  for(yr in years){
     
-    area <- areas[x]
+    # need the index for the brick of each metric
+    brickIndex <- yr - min(years) + 1
     
-    dir_out <- dir_( # create areas directories inside clmod rirectory
-      paste0(dir_pcrglobwb_out,'/',area,'/' )
+    # read one year as raster brick of 52 layers
+    # set to zero cells with flow lower than 0.001
+    rQ <- calc(
+      brick(paste0(dir_src,area,'/netcdf/',Qfile))[[((yr-start_year)*no.weeks+1):((yr-start_year+1)*no.weeks)]],
+      fun=function(x){x[x <= 0.001] <- 0; return(x)}
     )
     
-    Qfile <- list.files(paste0(dir_src,area,'/netcdf/'),pattern = 'discharge_weekAvg_output')
-    Tfile <- list.files(paste0(dir_src,area,'/netcdf/'),pattern = 'waterTemp_weekAvg_output')
-    
-    # create list of brick-metrics to store the output of each year
-    brickQ <- brick(raster(paste0(dir_src,area,'/netcdf/',Qfile),band=1))
-    brickT <- brick(raster(paste0(dir_src,area,'/netcdf/',Tfile),band=1))
-    res <- foreach(i = varsQ) %do% brickQ
-    res <- c(res,foreach(i = varsT) %do% brickT)
-    names(res) <- c(varsQ,varsT)
-    
-    # loop thorugh years and calculate the metrics
-    for(yr in years){
-      
-      # need the index for the brick of each metric
-      brickIndex <- yr - min(years) + 1
-      
-      # read one year as raster brick of 52 layers
-      # set to zero cells with flow lower than 0.001
-      rQ <- calc(
-        brick(paste0(dir_src,area,'/netcdf/',Qfile))[[((yr-start_year)*no.weeks+1):((yr-start_year+1)*no.weeks)]],
-        fun=function(x){x[x <= 0.001] <- 0; return(x)}
-      )
-      
-      rT <- calc(
-        brick(paste0(dir_src,area,'/netcdf/',Tfile))[[((yr-start_year)*no.weeks+1):((yr-start_year+1)*no.weeks)]],
-        fun=function(x){x[x == 0 | x > (273.15+60)] <- NA; return(x)}
-      )
-      
-      # calc metrics
-      res[['Qav']][[brickIndex]] <- mean(rQ,na.rm = T)
-      
-      res[['Qmi']][[brickIndex]] <- min(rQ,na.rm = T)
-      
-      res[['Qzf']][[brickIndex]] <- sum(
-        calc(rQ, fun=function(x){ x[x == 0] <- 1; x[x != 1] <- NA; return(x)} )
-        ,na.rm=T)
-      
-      res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
-      
-      # calc metrics
-      res[['Tma']][[brickIndex]] <- max(rT,na.rm = T)
-      
-      res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
-      
-      
-    }
-    
-    # average over the 30 years
-    res.av <- lapply(res,function(x) calc(x,mean,na.rm=T))
-    
-    # round up to 3 decimals (then automatically, values < 0.001 are set to zero)
-    res.av <- lapply(res.av,function(x) round(x,3))
-    res.av[['Qzf']] <- round(res.av[['Qzf']],0) # for Qzf
-    
-    # store results
-    for(varname in c(varsQ,varsT)){
-      writeRaster(res.av[[varname]],paste0(dir_out,varname,'_',scen,'.tif'),format="GTiff", overwrite=TRUE)
-    }
-    
-    
-  }
-  
-  parallel::mcmapply(calc_metrics,seq_along(areas),SIMPLIFY = F,mc.cores = ncores)
-  
-  
-  # MERGE THE AREAS ---------------------------------------------------------------------
-  
-  dir_merged <- dir_(paste0(dir_pcrglobwb_out,'merged/'))
-  
-  metrics <- c(varsQ,varsT)
-  
-  # first compute Qav to filter out cells with average zero flow
-  # <<<<<<<< THIS should be done based on the HISTORICAL run of the clmod, 
-  # <<<<<<<< so that it uses the same Qavbin for all the future rcps of the same clmod
-  # <<<<<<<< then if the schen is != hist should skip after checking that Qavbin exists
-  if(scen == 'hist'){
-    
-    v <- list()
-    for(a in seq_along(areas)){
-      v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/Qav_',scen,'.tif')) #<<<here should always be hist
-    }
-    
-    names(v)[1:2] <- c('x', 'y')
-    v$fun <- sum
-    v$na.rm <- TRUE
-    
-    Qavbin <- paste0(dir_merged,'Qavbin.tif')
-    
-    writeRaster(
-      do.call(mosaic, v) >= 0.001,
-      Qavbin, format="GTiff", overwrite=TRUE
+    rT <- calc(
+      brick(paste0(dir_src,area,'/netcdf/',Tfile))[[((yr-start_year)*no.weeks+1):((yr-start_year+1)*no.weeks)]],
+      fun=function(x){x[x == 0 | x > (273.15+60)] <- NA; return(x)}
     )
     
-  }
-  
-  for(i in seq_along(metrics)){
+    # calc metrics
+    res[['Qav']][[brickIndex]] <- mean(rQ,na.rm = T)
     
-    v <- list()
-    for(a in seq_along(areas)){
-      v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/',metrics[i],'_',scen,'.tif'))
-    }
+    res[['Qmi']][[brickIndex]] <- min(rQ,na.rm = T)
     
-    names(v)[1:2] <- c('x', 'y')
-    v$fun <- sum
-    v$na.rm <- TRUE
+    res[['Qzf']][[brickIndex]] <- sum(
+      calc(rQ, fun=function(x){ x[x == 0] <- 1; x[x != 1] <- NA; return(x)} )
+      ,na.rm=T)
     
-    writeRaster(
-      extend(do.call(mosaic, v),extent(raster(Qavbin)))*raster(Qavbin),
-      paste0(dir_merged,metrics[i],'_',scen,'.tif'),
-      format="GTiff", overwrite=TRUE
-    )
+    res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
+    
+    # calc metrics
+    res[['Tma']][[brickIndex]] <- max(rT,na.rm = T)
+    
+    res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
+    
     
   }
   
+  # average over the 30 years
+  res.av <- lapply(res,function(x) calc(x,mean,na.rm=T))
   
+  # round up to 3 decimals (then automatically, values < 0.001 are set to zero)
+  res.av <- lapply(res.av,function(x) round(x,3))
+  res.av[['Qzf']] <- round(res.av[['Qzf']],0) # for Qzf
   
+  # store results
+  for(varname in c(varsQ,varsT)){
+    writeRaster(res.av[[varname]],paste0(dir_out,varname,'_',scen,'.tif'),format="GTiff", overwrite=TRUE)
+  }
   
   
 }
+
+parallel::mcmapply(calc_metrics,seq_along(areas),SIMPLIFY = F,mc.cores = ncores)
+
+
+# MERGE THE AREAS ---------------------------------------------------------------------
+
+dir_merged <- dir_(paste0(dir_pcrglobwb_out,'merged/'))
+
+metrics <- c(varsQ,varsT)
+
+# first compute Qav to filter out cells with average zero flow
+# <<<<<<<< THIS should be done based on the HISTORICAL run of the clmod, 
+# <<<<<<<< so that it uses the same Qavbin for all the future rcps of the same clmod
+# <<<<<<<< then if the schen is != hist should skip after checking that Qavbin exists
+if(scen == 'hist'){
+  
+  v <- list()
+  for(a in seq_along(areas)){
+    v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/Qav_',scen,'.tif')) #<<<here should always be hist
+  }
+  
+  names(v)[1:2] <- c('x', 'y')
+  v$fun <- sum
+  v$na.rm <- TRUE
+  
+  Qavbin <- paste0(dir_merged,'Qavbin.tif')
+  
+  writeRaster(
+    do.call(mosaic, v) >= 0.001,
+    Qavbin, format="GTiff", overwrite=TRUE
+  )
+  
+}
+
+for(i in seq_along(metrics)){
+  
+  v <- list()
+  for(a in seq_along(areas)){
+    v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/',metrics[i],'_',scen,'.tif'))
+  }
+  
+  names(v)[1:2] <- c('x', 'y')
+  v$fun <- sum
+  v$na.rm <- TRUE
+  
+  writeRaster(
+    extend(do.call(mosaic, v),extent(raster(Qavbin)))*raster(Qavbin),
+    paste0(dir_merged,metrics[i],'_',scen,'.tif'),
+    format="GTiff", overwrite=TRUE
+  )
+  
+}
+
+
+
