@@ -17,7 +17,7 @@ map_variable2species <- function(
   
   #load packages
   library('valerioUtils')
-  libinv(c('raster','foreach','parallel'))
+  libinv(c('raster','foreach','parallel','sf'))
   
   # set raster package tmp dir
   rasterOptions(tmpdir = dir_tmp)
@@ -32,19 +32,26 @@ map_variable2species <- function(
       # load points in memory
       pts <- readRDS(x)
       
-      # extract values
-      val <- extract(lyr,pts)
-      # exclude eventual NAs
-      val <- val[!is.na(val)]
-      
-      # retrieve quantiles of the values distribution
-      q <- quantile(val,seq(0,1,0.005))
-      
-      # return the data as data.frame
-      return(
-        cbind(data.frame(no.grids = length(val), mean = mean(val), sd = sd(val)),
-              t(as.data.frame(q)))
-      )
+      if(nrow(pts)>0){
+        # extract values
+        val <- extract(lyr,pts)
+        # exclude eventual NAs
+        val <- val[!is.na(val)]
+        
+        # retrieve quantiles of the values distribution
+        q <- quantile(val,seq(0,1,0.005))
+        
+        # return the data as data.frame
+        return(
+          cbind(data.frame(no.grids = length(val), mean = mean(val), sd = sd(val)),
+                t(as.data.frame(q)))
+        )
+      }else{
+        return(
+          cbind(data.frame(no.grids = 0, mean = NA, sd = NA),
+                t(as.data.frame(quantile(NA,seq(0,1,0.005),na.rm=T))))
+        )
+      }
       
     },infiles_pts,SIMPLIFY = F,mc.cores = NC)
   )
