@@ -3,7 +3,7 @@ range2table <- function(
   in_shapefile_ranges #path to shapefile with species ranges
   ,id_col = 'id_no' #id column within the shapefile. If an id has multiple entries then all the rows corresponding to the id will be sampled
   ,ids # vector of ids to use
-  ,multiple_poly_per_id = F
+  ,multiple_poly_per_id = F #specify whether there are multiple polygon ranges with same id that need to be merged
   ,ext = c(-180,180,-90,90) #xmin, xmax, ymin, ymax
   ,res = 1/12 #resolution in degrees
   ,mask = NULL #mask to filter out NAs, e.g. marine areas, to speed up calculations
@@ -69,7 +69,9 @@ range2table <- function(
   
   if(!is.null(dir_single_ranges)){
     cat('Saving single ranges as point shapefiles..\n')
-    lapply(lst,function(x) saveRDS(tab[x,],paste0(dir_(dir_single_ranges),'/',ids,'.rds')))
+    invisible(lapply(1:length(lst),
+           function(n) saveRDS(tab[lst[[n]],],paste0(dir_(dir_single_ranges),'/',ids[n],'.rds')) 
+           ))
   }
   # need to figure a way to save it as multipoints, not trivial
   # mp <- st_multipoint(cbind(rep(1,length(lst[[1]])),as.matrix(xytab[lst[[1]],])))
