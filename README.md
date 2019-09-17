@@ -3,4 +3,4 @@ Framework to model geographical ranges of freshwater fish species based on strea
 
 This is a beta release. More details on input data and streamline of processes will be made available upon acceptance of the related manuscript. For further information, please contact Valerio Barbarossa (v.barbarossa@fnwi.ru.nl)
 
-![](flowchart.png)
+![](fishsuit_flowchart.png)
