@@ -15,6 +15,11 @@ model_type <- 'warming_targets' # or 'year_targets'
 warming_tab <- read.csv('thresholdYears_4targets.csv')
 colnames(warming_tab) <- c('model',warming_targets)
 
+# threshold for minimum flow to consider when filtering the pcrglobwb maps
+# in general a cross-sectional area in m2 = 2.77*Q^0.79 (https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2003WR002082)
+# then for a river of about 0.5 m2 section, flow has to be 0.1 m3/s
+flow_filter_threshold <- 0.1
+
 #----------------------------------------------------------------------------------
 #>> DIRECTORIES
 dir_master <- paste0(model_folder,model_name,'/')

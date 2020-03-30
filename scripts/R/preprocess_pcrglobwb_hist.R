@@ -46,7 +46,7 @@ varsQ <- c('Qmi','Qma','Qzf','Qav','Qve')#'ff' once available
 varsT <- c('Tma','Tmi')
 
 channel_section_area <- mask(raster(paste0(dir_data,'channel_section_area.tif')),raster(paste0(dir_data,'ldd.asc')) )
-channel_section_area[channel_section_area[] < 0.001] <- NA
+channel_section_area[channel_section_area[] < 0.1] <- NA
 
 calc_metrics <- function(x){
   
@@ -73,10 +73,10 @@ calc_metrics <- function(x){
     brickIndex <- yr - min(years) + 1
     
     # read one year as raster brick of 52 layers
-    # set to zero cells with flow lower than 0.001
+    # set to zero cells with flow lower than flow_filter_threshold
     rQ <- calc(
       brick(paste0(dir_src,area,'/netcdf/',Qfile))[[((yr-start_year)*no.weeks+1):((yr-start_year+1)*no.weeks)]],
-      fun=function(x){x[x <= 0.001] <- 0; return(x)}
+      fun=function(x){x[x <= flow_filter_threshold] <- 0; return(x)}
     )
     
     rT <- calc(
@@ -112,7 +112,7 @@ calc_metrics <- function(x){
   # average over the 30 years
   res.av <- lapply(res,function(x) calc(x,mean,na.rm=T))
   
-  # round up to 3 decimals (then automatically, values < 0.001 are set to zero)
+  # round up to 3 decimals (then automatically, values < flow_filter_threshold are set to zero)
   res.av <- lapply(res.av,function(x) round(x,3))
   res.av[['Qzf']] <- round(res.av[['Qzf']],0) # for Qzf
   
@@ -151,7 +151,7 @@ if(scen == 'hist'){
   Qavbin <- paste0(dir_merged,'Qavbin.tif')
   
   writeRaster(
-    do.call(mosaic, v) >= 0.001,
+    do.call(mosaic, v) >= flow_filter_threshold,
     Qavbin, format="GTiff", overwrite=TRUE
   )
   
