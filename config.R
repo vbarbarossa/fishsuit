@@ -1,7 +1,7 @@
 #----------------------------------------------------------------------------------
 #>> model run name & location
-model_name <- 'fishsuit_completeRun_warming_4targets'
-model_folder <- '/nfs/home2/valeriob/'
+model_name <- 'fishsuit'
+model_folder <- '/nfs/home2/valeriob/projects'
 
 #----------------------------------------------------------------------------------
 #>> climate models & scenarios settings
@@ -17,14 +17,14 @@ colnames(warming_tab) <- c('model',warming_targets)
 
 #----------------------------------------------------------------------------------
 #>> DIRECTORIES
-dir_master <- '/nfs/home2/valeriob/fishsuit/'
+dir_master <- model_folder
 
 dir_data <- paste0(dir_master,'data/')
 
 dir_model <- paste0(model_folder,model_name,'/')
 
 # source directory for PCR-GLOBWB output directories
-dir_src_pcrglobwb <- '/scratch-shared/jbosmans/'
+dir_src_pcrglobwb <- '/projects/0/milkun/'
 
 #----------------------------------------------------------------------------------
 #>> number of cores for parallelized scripts
