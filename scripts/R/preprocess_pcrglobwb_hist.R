@@ -38,10 +38,6 @@ no.weeks <- 52
 # and compute only metrics requested by the user
 
 # metrics
-# mi: annual minimum weekly flow
-# zf: zero-flow weeks
-# cv: coefficient of variation
-# ff: flood frequncy
 varsQ <- c('Qmi','Qma','Qzf','Qav','Qve')#'ff' once available
 varsT <- c('Tma','Tmi')
 
