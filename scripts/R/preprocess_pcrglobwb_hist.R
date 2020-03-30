@@ -42,10 +42,11 @@ no.weeks <- 52
 # zf: zero-flow weeks
 # cv: coefficient of variation
 # ff: flood frequncy
-varsQ <- c('Qmi','Qmax','Qzf','Qav','Qve')#'ff' once available
+varsQ <- c('Qmi','Qma','Qzf','Qav','Qve')#'ff' once available
 varsT <- c('Tma','Tmi')
 
-channel_section_area <- raster(paste0(dir_data,'channel_section_area.tif'))
+channel_section_area <- mask(raster(paste0(dir_data,'channel_section_area.tif')),raster(paste0(dir_data,'ldd.asc')) )
+channel_section_area[channel_section_area[] < 0.001] <- NA
 
 calc_metrics <- function(x){
   
@@ -90,7 +91,7 @@ calc_metrics <- function(x){
     
     res[['Qma']][[brickIndex]] <- max(rQ,na.rm = T)
     
-    res[['Qve']][[brickIndex]] <- max(rQ,na.rm = T)/channel_section_area
+    res[['Qve']][[brickIndex]] <- res[['Qma']][[brickIndex]]/mask(crop(channel_section_area,extent(rQ)),res[['Qma']][[brickIndex]])
     
     res[['Qzf']][[brickIndex]] <- sum(
       calc(rQ, fun=function(x){ x[x == 0] <- 1; x[x != 1] <- NA; return(x)} )
