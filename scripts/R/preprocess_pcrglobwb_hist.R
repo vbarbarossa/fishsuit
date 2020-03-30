@@ -42,8 +42,10 @@ no.weeks <- 52
 # zf: zero-flow weeks
 # cv: coefficient of variation
 # ff: flood frequncy
-varsQ <- c('Qmi','Qzf','Qcv','Qav')#'ff' once available
-varsT <- c('Tma','Tcv')
+varsQ <- c('Qmi','Qmax','Qzf','Qav','Qve')#'ff' once available
+varsT <- c('Tma','Tmi')
+
+channel_section_area <- raster(paste0(dir_data,'channel_section_area.tif'))
 
 calc_metrics <- function(x){
   
@@ -86,16 +88,22 @@ calc_metrics <- function(x){
     
     res[['Qmi']][[brickIndex]] <- min(rQ,na.rm = T)
     
+    res[['Qma']][[brickIndex]] <- max(rQ,na.rm = T)
+    
+    res[['Qve']][[brickIndex]] <- max(rQ,na.rm = T)/channel_section_area
+    
     res[['Qzf']][[brickIndex]] <- sum(
       calc(rQ, fun=function(x){ x[x == 0] <- 1; x[x != 1] <- NA; return(x)} )
       ,na.rm=T)
     
-    res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
+    # res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
     
     # calc metrics
     res[['Tma']][[brickIndex]] <- max(rT,na.rm = T)
     
-    res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
+    res[['Tmi']][[brickIndex]] <- min(rT,na.rm = T)
+    
+    # res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
     
     
   }
