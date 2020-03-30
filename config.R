@@ -1,7 +1,7 @@
 #----------------------------------------------------------------------------------
 #>> model run name & location
 model_name <- 'fishsuit'
-model_folder <- '/nfs/home2/valeriob/projects'
+model_folder <- '/nfs/home2/valeriob/projects/'
 
 #----------------------------------------------------------------------------------
 #>> climate models & scenarios settings
@@ -17,9 +17,9 @@ colnames(warming_tab) <- c('model',warming_targets)
 
 #----------------------------------------------------------------------------------
 #>> DIRECTORIES
-dir_master <- model_folder
+dir_master <- paste0(model_folder,model_name,'/')
 
-dir_data <- paste0(dir_master,'/data/')
+dir_data <- paste0(dir_master,'data/')
 
 dir_model <- paste0(model_folder,model_name,'/')
 
