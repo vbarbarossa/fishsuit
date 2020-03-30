@@ -19,7 +19,7 @@ colnames(warming_tab) <- c('model',warming_targets)
 #>> DIRECTORIES
 dir_master <- model_folder
 
-dir_data <- paste0(dir_master,'data/')
+dir_data <- paste0(dir_master,'/data/')
 
 dir_model <- paste0(model_folder,model_name,'/')
 
