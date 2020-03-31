@@ -2,7 +2,7 @@
 source('config.R'); # always load as functions are loaded within this script
 
 # override, memory problems..
-ncores <- 10
+ncores <- 6
 
 libinv(c('raster','foreach','dplyr','sf'))
 
