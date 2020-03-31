@@ -13,6 +13,7 @@ map_variable2species <- function(
   ,outfile_name # name of output table (NO EXTENTION). The file is saved in csv and rds formats
   ,NC = 1 # number of cores to use
   ,dir_tmp = dir_(paste0('tmp',sample(1:10**5,1))) # set temporary directory for calculations, if not specified a random one in used
+  ,return_table = F
 ){
   
   #load packages
@@ -34,7 +35,7 @@ map_variable2species <- function(
       
       if(nrow(pts)>0){
         # extract values
-        val <- extract(lyr,pts)
+        val <- extract(lyr,pts %>% st_cast('POINT',warn = F))
         # exclude eventual NAs
         val <- val[!is.na(val)]
         
@@ -66,6 +67,6 @@ map_variable2species <- function(
   # remove temporary directory
   rm_(dir_tmp)
   
-  return(t_range)
+  if(return_table) return(t_range)
   
 }

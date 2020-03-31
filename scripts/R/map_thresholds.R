@@ -8,7 +8,7 @@ libinv(c('raster','foreach'))
 
 # array will be var1*var2 of attrs
 attrs <- expand.grid(
-  c('Qmi','Qzf','Tma'), #'Qcv','Tcv'
+  c('Qmi','Qma','Qzf','Qve','Tma','Tmi'), #'Qcv','Tcv'
   climate_models
 )
 
@@ -22,51 +22,20 @@ yr <- c(timespan_hist[1],timespan_hist[2])
 dir_merged <- paste0(dir_model,clmod,'/pcrglobwb_processed/merged/')
 dir_niches <- dir_(paste0(dir_model,clmod,'/niches/'))
 
-# set temporary directory for calculations
-dir_tmp <- dir_(paste0('tmp_nichesCalc_',metric,clmod,'_/'))
-rasterOptions(tmpdir = dir_tmp)
-
 # read IUCN ids
 iucn <- foreach(i = 1:2,.combine='rbind') %do% foreign::read.dbf(paste0(dir_data,'/FW_FISH_20181113/FW_FISH_PART_',i,'.dbf'))
 iucn.id <- as.character(sort(unique(iucn$id_no)))
 
-# load pcrglobwb discharge output
-Q <- raster(paste0(dir_merged,metric,'_hist.tif'))
+infiles <- list.files('proc/ssp/single_points',full.names = T)
+ids <- lapply(infiles,function(x) strsplit(x[1],'/')[[1]][4] %>% strsplit(.,'\\.') %>% .[[1]] %>% .[1]) %>% do.call('c',.)
 
-# function to retrieve the range quantiles
-range_custom <- function(id){
-  
-  pts <- readRDS(paste0(dir_master,'ssp/ssp_points/',id,'.rds'))
-  
-  # extract values
-  val <- extract(Q,pts)
-  val <- val[!is.na(val)]
-  
-  # retrieve quantiles of the values distribution
-  q <- quantile(val,seq(0,1,0.005))
-  
-  # return the data as data.frame
-  return(
-    cbind(data.frame(IUCN_ID = id, no.grids = length(val), mean = mean(val), sd = sd(val)),
-          t(as.data.frame(q)))
-  )
-  
-}
+source('scripts/R/calc/map_variable2species.R')
 
-# apply the function in parallel to the iucn ids
-t_range <- do.call(
-  'rbind',
-  parallel::mcmapply(range_custom,iucn.id,SIMPLIFY = F,mc.cores = ncores)
+map_variable2species(
+  infile_lyr =  paste0(dir_merged,metric,'_hist.tif')#.tif
+  ,infiles_pts = infiles #.rds # path to the point shapefiles
+  ,ids = ids # vector of ID names
+  ,outfile_name = paste0(dir_niches,metric) # name of output table (NO EXTENTION). The file is saved in csv and rds formats
+  ,NC = ncores # number of cores to use
 )
-row.names(t_range) <- NULL
-
-# save results
-write.csv(t_range,paste0(dir_niches,metric,'.csv'), row.names = FALSE)
-saveRDS(t_range,paste0(dir_niches,metric,'.rds'))
-
-# remove temporary directory
-system(
-  paste0('rm -r ',dir_tmp)
-)
-
 
