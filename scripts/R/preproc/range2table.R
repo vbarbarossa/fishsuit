@@ -4,8 +4,6 @@ range2table <- function(
   ,out_shapefile_multipoints #name of file to be saved
   ,out_dir_shapefile_multipoints # name of output directory where the file will be saved
   ,id_col = 'id_no' #id column within the shapefile. If an id has multiple entries then all the rows corresponding to the id will be sampled
-  ,ids # vector of ids to use
-  ,multiple_poly_per_id = F #specify whether there are multiple polygon ranges with same id that need to be merged
   ,ext = c(-180,180,-90,90) #xmin, xmax, ymin, ymax
   ,res = 1/12 #resolution in degrees
   ,mask_lyr = NULL #mask to filter out NAs, e.g. marine areas, to speed up calculations
