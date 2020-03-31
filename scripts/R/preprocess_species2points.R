@@ -1,6 +1,9 @@
 
 source('config.R'); # always load as functions are loaded within this script
 
+# override, memory problems..
+ncores <- 10
+
 libinv(c('raster','foreach','dplyr','sf'))
 
 # read the IUCN species list
