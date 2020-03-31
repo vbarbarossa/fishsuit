@@ -14,6 +14,9 @@ range2table <- function(
   library(valerioUtils)
   libinv(c('raster','sf','dplyr'))
   
+   # make sure this directory is created --> later change settings to include user specified working dir
+  out_dir_shapefile_multipoints <- dir_(out_dir_shapefile_multipoints)
+  
   # generate template table from empty raster---------------------------------------
   
   cat('Creating template points shapefile table..\n')
@@ -37,12 +40,12 @@ range2table <- function(
   
   #---------------------------------------------------------------------------------
   
-  ids = ranges %>% pull(get(id_col))
   if(is.character(in_shapefile_ranges)){
     ranges <- read_sf(in_shapefile_ranges)
   }else{
     ranges <- in_shapefile_ranges
   }
+  ids <- ranges %>% pull(get(id_col))
   
   cat('Computing sparse table..\n')
   lst <- st_contains(ranges,tab,sparse = T)
