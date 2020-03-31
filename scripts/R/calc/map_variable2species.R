@@ -18,7 +18,7 @@ map_variable2species <- function(
   
   #load packages
   library('valerioUtils')
-  libinv(c('raster','foreach','parallel','sf'))
+  libinv(c('raster','foreach','parallel','sf','dplyr'))
   
   # set raster package tmp dir
   rasterOptions(tmpdir = dir_tmp)

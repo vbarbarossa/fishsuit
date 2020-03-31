@@ -4,7 +4,7 @@ g <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
 
 source('config.R'); # always load as functions are loaded within this script
 
-libinv(c('raster','foreach'))
+libinv(c('raster','foreach','dplyr'))
 
 # array will be var1*var2 of attrs
 attrs <- expand.grid(
