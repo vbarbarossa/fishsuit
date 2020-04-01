@@ -151,7 +151,7 @@ dir_merged <- dir_(paste0(dir_pcrglobwb_out,'merged/'))
 
 metrics <- c(varsQ,varsT)
 
-Qavbin <- paste0(dir_merged,'Qavbin.tif')
+Qavbin <- raster(paste0(dir_merged,'Qavbin.tif'))
 
 for(i in seq_along(metrics)){
   
@@ -165,7 +165,7 @@ for(i in seq_along(metrics)){
   v$na.rm <- TRUE
   
   writeRaster(
-    extend(do.call(mosaic, v),extent(raster(Qavbin)))*raster(Qavbin),
+    mask(extend(do.call(mosaic, v),extent(raster(Qavbin))),Qavbin),
     paste0(dir_merged,metrics[i],'_',scen,'_',warmt,'C_',year,'.tif'),
     format="GTiff", overwrite=TRUE
   )

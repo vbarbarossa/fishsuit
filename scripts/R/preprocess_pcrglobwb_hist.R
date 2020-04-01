@@ -133,26 +133,26 @@ metrics <- c(varsQ,varsT)
 # <<<<<<<< THIS should be done based on the HISTORICAL run of the clmod, 
 # <<<<<<<< so that it uses the same Qavbin for all the future rcps of the same clmod
 # <<<<<<<< then if the schen is != hist should skip after checking that Qavbin exists
-if(scen == 'hist'){
-  
-  v <- list()
-  for(a in seq_along(areas)){
-    v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/Qav_',scen,'.tif')) #<<<here should always be hist
-  }
-  
-  names(v)[1:2] <- c('x', 'y')
-  v$fun <- sum
-  v$na.rm <- TRUE
-  
-  Qavbin <- paste0(dir_merged,'Qavbin.tif')
-  
-  writeRaster(
-    do.call(mosaic, v) >= flow_filter_threshold,
-    Qavbin, format="GTiff", overwrite=TRUE
-  )
-  
+
+# create binary layer based on long-term average annual flow
+v <- list()
+for(a in seq_along(areas)){
+  v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/Qav_',scen,'.tif')) #<<<here should always be hist
 }
 
+names(v)[1:2] <- c('x', 'y')
+v$fun <- sum
+v$na.rm <- TRUE
+
+Qavbin <- paste0(dir_merged,'Qavbin.tif')
+
+l <- do.call(mosaic, v) >= flow_filter_threshold
+NAvalue(l) <- 0 # set 0 to NA
+
+writeRaster(l,Qavbin, format="GTiff", overwrite=TRUE)
+
+Qavbin <- raster(Qavbin)
+# mosaic the metrics and mask based on the binary layer created above
 for(i in seq_along(metrics)){
   
   v <- list()
@@ -165,7 +165,7 @@ for(i in seq_along(metrics)){
   v$na.rm <- TRUE
   
   writeRaster(
-    extend(do.call(mosaic, v),extent(raster(Qavbin)))*raster(Qavbin),
+    mask(extend(do.call(mosaic, v),extent(raster(Qavbin))),Qavbin),
     paste0(dir_merged,metrics[i],'_',scen,'.tif'),
     format="GTiff", overwrite=TRUE
   )
