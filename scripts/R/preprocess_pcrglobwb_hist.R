@@ -9,7 +9,7 @@ libinv(c('raster','foreach'))
 clmod <- climate_models[g]
 scen <- 'hist'
 
-dir_pcrglobwb_out <- dir_(paste0(dir_model,clmod,'/pcrglobwb_processed/'))
+dir_pcrglobwb_out <- dir_(paste0(dir_model,'proc/',clmod,'/pcrglobwb_processed/'))
 
 dir_src <- paste0(dir_src_pcrglobwb,'output_',clmod,'_',scen,'_mergetime/')
 
