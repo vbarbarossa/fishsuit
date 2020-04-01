@@ -38,8 +38,8 @@ no.weeks <- 52
 # and compute only metrics requested by the user
 
 # metrics
-varsQ <- c('Qmi','Qma','Qzf','Qav','Qve')#'ff' once available
-varsT <- c('Tma','Tmi')
+varsQ <- c('Qmi','Qma','Qzf','Qav','Qve','Qcv')#'ff' once available
+varsT <- c('Tma','Tmi','Tcv')
 
 channel_section_area <- mask(raster(paste0(dir_data,'channel_section_area.tif')),raster(paste0(dir_data,'ldd.asc')) )
 channel_section_area[channel_section_area[] < 0.1] <- NA
@@ -87,20 +87,21 @@ calc_metrics <- function(x){
     
     res[['Qma']][[brickIndex]] <- max(rQ,na.rm = T)
     
-    res[['Qve']][[brickIndex]] <- res[['Qma']][[brickIndex]]/mask(crop(channel_section_area,extent(rQ)),res[['Qma']][[brickIndex]])
+    res[['Qve']][[brickIndex]] <- res[['Qma']][[brickIndex]]/mask(crop(channel_section_area,extent(rQ)),
+                                                                  res[['Qma']][[brickIndex]])
     
     res[['Qzf']][[brickIndex]] <- sum(
       calc(rQ, fun=function(x){ x[x == 0] <- 1; x[x != 1] <- NA; return(x)} )
       ,na.rm=T)
     
-    # res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
+    res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
     
     # calc metrics
     res[['Tma']][[brickIndex]] <- max(rT,na.rm = T)
     
     res[['Tmi']][[brickIndex]] <- min(rT,na.rm = T)
     
-    # res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
+    res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
     
     
   }
@@ -111,6 +112,8 @@ calc_metrics <- function(x){
   # round up to 3 decimals (then automatically, values < flow_filter_threshold are set to zero)
   res.av <- lapply(res.av,function(x) round(x,3))
   res.av[['Qzf']] <- round(res.av[['Qzf']],0) # for Qzf
+  res.av[['Tmi']] <- mask(res.av[['Tmi']],res.av[['Tmi']] > 273.2,maskvalue=0) # this is how mask works for binary filter layers
+  
   
   # store results
   for(varname in c(varsQ,varsT)){
