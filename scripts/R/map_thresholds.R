@@ -8,7 +8,7 @@ libinv(c('raster','foreach','dplyr'))
 
 # array will be var1*var2 of attrs
 attrs <- expand.grid(
-  c('Qmi','Qma','Qzf','Qve','Tma','Tmi'), #'Qcv','Tcv'
+  c('Qmi','Qma','Qzf','Qcv','Qve','Tma','Tmi','Tcv'), #'Qcv','Tcv'
   climate_models
 )
 
