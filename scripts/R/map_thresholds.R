@@ -32,7 +32,7 @@ iucn.id <- as.character(sort(unique(iucn$id_no)))
 infiles <- list.files('proc/ssp/single_points',full.names = T)
 ids <- lapply(infiles,function(x) strsplit(x[1],'/')[[1]][4] %>% strsplit(.,'\\.') %>% .[[1]] %>% .[1]) %>% do.call('c',.)
 
-source('scripts/R/calc/map_variable2species.R')
+source('scripts/R/fun/map_variable2species.R')
 
 map_variable2species(
   infile_lyr =  paste0(dir_merged,metric,'_hist.tif')#.tif

@@ -22,7 +22,7 @@ ids_split <- ranges %>%
 ranges_split <- lapply(ids_split,function(x) ranges %>% filter(id_no %in% x))
 
 cat('Run algorithm..\n')
-source('scripts/R/preproc/range2table.R')
+source('scripts/R/fun/range2table.R')
 parallel::mcmapply(range2table,in_shapefile_ranges = ranges_split,
                    out_shapefile_multipoints = paste0('sp_points_',1:length(ranges_split))%>% as.list,
                    out_dir_shapefile_multipoints = 'proc/ssp/',

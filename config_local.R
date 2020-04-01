@@ -64,6 +64,6 @@ filter_lentic_out <- FALSE
 
 #----------------------------------------------------------------------------------
 #>> CUSTOM FUNCTIONS
-source('scripts/R/functions.R')
+source('scripts/R/fun/generic.R')
 
 
