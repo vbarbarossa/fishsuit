@@ -152,6 +152,8 @@ NAvalue(l) <- 0 # set 0 to NA
 writeRaster(l,Qavbin, format="GTiff", overwrite=TRUE)
 
 Qavbin <- raster(Qavbin)
+NAvalue(Qavbin) <- 0 # set 0 to NA
+
 # mosaic the metrics and mask based on the binary layer created above
 for(i in seq_along(metrics)){
   

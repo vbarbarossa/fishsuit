@@ -19,8 +19,11 @@ cat('\nclimate model = ',clmod,'\nmetric = ',metric,'\n')
 
 yr <- c(timespan_hist[1],timespan_hist[2])
 
-dir_merged <- paste0(dir_model,clmod,'/pcrglobwb_processed/merged/')
-dir_niches <- dir_(paste0(dir_model,clmod,'/niches/'))
+# cleanup the M folders
+system(paste0('rm -r ',dir_model,'proc/',clmod,'/pcrglobwb_processed/M*'))
+
+dir_merged <- paste0(dir_model,'proc/',clmod,'/pcrglobwb_processed/merged/')
+dir_niches <- dir_(paste0(dir_model,'proc/',clmod,'/niches/'))
 
 # read IUCN ids
 iucn <- foreach(i = 1:2,.combine='rbind') %do% foreign::read.dbf(paste0(dir_data,'/FW_FISH_20181113/FW_FISH_PART_',i,'.dbf'))

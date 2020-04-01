@@ -152,6 +152,7 @@ dir_merged <- dir_(paste0(dir_pcrglobwb_out,'merged/'))
 metrics <- c(varsQ,varsT)
 
 Qavbin <- raster(paste0(dir_merged,'Qavbin.tif'))
+NAvalue(Qavbin) <- 0 # set 0 to NA
 
 for(i in seq_along(metrics)){
   
