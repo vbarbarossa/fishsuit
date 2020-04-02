@@ -2,110 +2,110 @@ source('config.R'); # always load as functions are loaded within this script
 
 libinv(c('sf','dplyr','foreach'))
 
-cat('\n\nCompiling datasets..\n')
-# AmazonFish dataset ------------------------------------------------------------
-amazonfish_tab <- read.csv2('data/amazonfish/CompleteDatabase.csv') %>% 
-  as_tibble %>%
-  filter(Occurrence.Status == 'valid') %>%
-  select(binomial = Referent.Species.Name, SBD_CD = SubDrainage.Code) %>%
-  mutate(binomial = gsub('.',' ',binomial,fixed=T)) %>%
-  distinct()
-
-amazonfish <- read_sf('data/amazonfish/SubDrainageShapefile.shp') %>%
-  select(SBD_CD) %>%
-  right_join(amazonfish_tab) %>%
-  mutate(dataset = 'amazonfish') %>%
-  select(binomial,dataset) %>%
-  st_buffer(0)
-
-amazonfish$area_sqkm = units::drop_units(st_area(st_transform(amazonfish,54009))/10**6)
-
-
-# IUCN dataset -----------------------------------------------------------------
-
-iucn <- lapply(1:2,function(x) read_sf(paste0('data/FW_FISH_20200402/FW_FISH_PART',x,'.shp'))) %>%
-  do.call('rbind',.) %>%
-  filter(presence %in% 1:2) %>%
-  mutate(dataset = 'iucn') %>%
-  select(binomial,dataset)
-
-iucn$area_sqkm = units::drop_units(st_area(st_transform(iucn,54009))/10**6)
-
-
-# PNAS paper dataset ------------------------------------------------------------------------------------------------
-cust <- read_sf('data/custom_ranges_poly.gpkg') %>%
-  filter(no_occ >= 10) %>%
-  mutate(dataset = 'custom') %>%
-  select(binomial = name, dataset) %>%
-  rename(geometry = geom)
-
-cust$area_sqkm = units::drop_units(st_area(st_transform(cust,54009))/10**6)
-
-
-# OVERALL -----------------------------------------------------------------------------------------------------------
-sp <- do.call('rbind',list(amazonfish,iucn,cust)) %>%
-  select(binomial,area_sqkm,dataset)
-
-
-# synonyms check ----------------------------------------------------------------------------------------------------
-cat('Validating names in fishbase..\n')
-
-# fishsuit names check
-library(rfishbase)
-options(FISHBASE_VERSION="19.04")
-
-names <- sp$binomial %>% unique %>% as.character
-names_tab <- data.frame(binomial = names,fishbase_1 = NA, fishbase_2 = NA)
-for(i in seq_along(names)){
-  
-  n <- validate_names(names[i])
-  
-  if(length(n) > 0) names_tab[i,2] <- n[1]; names_tab[i,3] <- n[2] 
-  
-}
-
-# some diagnostics
-
-# number of species not in fishbase
-apply(names_tab,2,function(x) sum(!is.na(x)))
-# binomial fishbase_1 fishbase_2 
-# 13544      13148         30 
-
-# number of unique names
-apply(names_tab,2,function(x) length(unique(x[!is.na(x)])))
-# binomial fishbase_1 fishbase_2 
-# 13544      12934         30 
-
-# merge names
-sp_names <- left_join(sp,names_tab) %>%
-  select(binomial,fishbase_1,fishbase_2,area_sqkm, dataset)
-
-# from which datasets are the NAs (names that could not be validated against fishbase)?
-sp_names %>% 
-  filter(is.na(fishbase_1)) %>%
-  select(binomial,dataset) %>%
-  as_tibble() %>%
-  select(-geometry) %>%
-  distinct() %>%
-  pull(dataset) %>% table()
-# amazonfish     custom       iucn 
-# 139          2        261 
-
-
-# total cumulative range area of species to exclude?
-(area_to_exclude <- sp_names %>% 
-    filter(is.na(fishbase_1)) %>%
-    pull(area_sqkm) %>% sum())
-# [1] 67520378 # 67M km2
-
-# and in %?
-area_to_exclude/(sp %>% pull(area_sqkm) %>% sum) * 100
-# [1] 1.082322 # only 1%
-
-# save the shapefile
-write_sf(sp_names,'proc/species_ranges_raw.gpkg')
-
-# FILTERED ----------------------------------------------------------------------------------------------------------
+# cat('\n\nCompiling datasets..\n')
+# # AmazonFish dataset ------------------------------------------------------------
+# amazonfish_tab <- read.csv2('data/amazonfish/CompleteDatabase.csv') %>% 
+#   as_tibble %>%
+#   filter(Occurrence.Status == 'valid') %>%
+#   select(binomial = Referent.Species.Name, SBD_CD = SubDrainage.Code) %>%
+#   mutate(binomial = gsub('.',' ',binomial,fixed=T)) %>%
+#   distinct()
+# 
+# amazonfish <- read_sf('data/amazonfish/SubDrainageShapefile.shp') %>%
+#   select(SBD_CD) %>%
+#   right_join(amazonfish_tab) %>%
+#   mutate(dataset = 'amazonfish') %>%
+#   select(binomial,dataset) %>%
+#   st_buffer(0)
+# 
+# amazonfish$area_sqkm = units::drop_units(st_area(st_transform(amazonfish,54009))/10**6)
+# 
+# 
+# # IUCN dataset -----------------------------------------------------------------
+# 
+# iucn <- lapply(1:2,function(x) read_sf(paste0('data/FW_FISH_20200402/FW_FISH_PART',x,'.shp'))) %>%
+#   do.call('rbind',.) %>%
+#   filter(presence %in% 1:2) %>%
+#   mutate(dataset = 'iucn') %>%
+#   select(binomial,dataset)
+# 
+# iucn$area_sqkm = units::drop_units(st_area(st_transform(iucn,54009))/10**6)
+# 
+# 
+# # PNAS paper dataset ------------------------------------------------------------------------------------------------
+# cust <- read_sf('data/custom_ranges_poly.gpkg') %>%
+#   filter(no_occ >= 10) %>%
+#   mutate(dataset = 'custom') %>%
+#   select(binomial = name, dataset) %>%
+#   rename(geometry = geom)
+# 
+# cust$area_sqkm = units::drop_units(st_area(st_transform(cust,54009))/10**6)
+# 
+# 
+# # OVERALL -----------------------------------------------------------------------------------------------------------
+# sp <- do.call('rbind',list(amazonfish,iucn,cust)) %>%
+#   select(binomial,area_sqkm,dataset)
+# 
+# 
+# # synonyms check ----------------------------------------------------------------------------------------------------
+# cat('Validating names in fishbase..\n')
+# 
+# # fishsuit names check
+# library(rfishbase)
+# options(FISHBASE_VERSION="19.04")
+# 
+# names <- sp$binomial %>% unique %>% as.character
+# names_tab <- data.frame(binomial = names,fishbase_1 = NA, fishbase_2 = NA)
+# for(i in seq_along(names)){
+#   
+#   n <- validate_names(names[i])
+#   
+#   if(length(n) > 0) names_tab[i,2] <- n[1]; names_tab[i,3] <- n[2] 
+#   
+# }
+# 
+# # some diagnostics
+# 
+# # number of species not in fishbase
+# apply(names_tab,2,function(x) sum(!is.na(x)))
+# # binomial fishbase_1 fishbase_2 
+# # 13544      13148         30 
+# 
+# # number of unique names
+# apply(names_tab,2,function(x) length(unique(x[!is.na(x)])))
+# # binomial fishbase_1 fishbase_2 
+# # 13544      12934         30 
+# 
+# # merge names
+# sp_names <- left_join(sp,names_tab) %>%
+#   select(binomial,fishbase_1,fishbase_2,area_sqkm, dataset)
+# 
+# # from which datasets are the NAs (names that could not be validated against fishbase)?
+# sp_names %>% 
+#   filter(is.na(fishbase_1)) %>%
+#   select(binomial,dataset) %>%
+#   as_tibble() %>%
+#   select(-geometry) %>%
+#   distinct() %>%
+#   pull(dataset) %>% table()
+# # amazonfish     custom       iucn 
+# # 139          2        261 
+# 
+# 
+# # total cumulative range area of species to exclude?
+# (area_to_exclude <- sp_names %>% 
+#     filter(is.na(fishbase_1)) %>%
+#     pull(area_sqkm) %>% sum())
+# # [1] 67520378 # 67M km2
+# 
+# # and in %?
+# area_to_exclude/(sp %>% pull(area_sqkm) %>% sum) * 100
+# # [1] 1.082322 # only 1%
+# 
+# # save the shapefile
+# write_sf(sp_names,'proc/species_ranges_raw.gpkg')
+# 
+# # FILTERED ----------------------------------------------------------------------------------------------------------
 
 cat('Compiling filtered dataset..\n')
 
