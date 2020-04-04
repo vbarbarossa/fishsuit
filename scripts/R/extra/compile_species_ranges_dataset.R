@@ -131,17 +131,23 @@ cat('Merging polygons..\n')
 
 # define ids of species to merge
 # sp_to_merge = table(sp_filtered$binomial) %>% .[.>1] %>% names
-
 # to_merge <- sp_filtered %>% 
 #   filter(binomial %in% sp_to_merge)
+
 to_merge <- split(sp_filtered,sp_filtered$id_no)
 
+# template raster for the grid to be used
 ras <- raster::raster(res = 1/12, ext = raster::extent(c(-180,180,-90,90)))
 
 dir_tmp <- dir_('tmp_compile_species_ranges/')
 merged <- parallel::mcmapply(function(i){
-  # st_union(to_merge[[i]] %>% st_buffer(1/120)) %>% st_sf()
+  
   print(i)  
+  
+  # old version, usin union -> not efficient for large polygons, 
+  # better to rasterize and then polygonize using GDAL
+  # st_union(to_merge[[i]] %>% st_buffer(1/120)) %>% st_sf()
+  
   t <- to_merge[[i]]
   t$val <- 1
   r <- fasterize::fasterize(sf = t,raster = ras,field = 'val') %>%
@@ -151,8 +157,7 @@ merged <- parallel::mcmapply(function(i){
     read_sf(paste0(dir_tmp,i,'.gpkg')) %>% st_combine %>% st_sf %>% mutate(id_no = names(to_merge[i]) %>% as.integer)
   )
   
-} ,
-seq_along(to_merge),mc.cores=10,SIMPLIFY=F) %>%
+},seq_along(to_merge),mc.cores=10,SIMPLIFY=F) %>%
   
   do.call('rbind',.) %>%
   left_join(id_tab) %>%
