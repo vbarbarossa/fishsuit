@@ -1,3 +1,5 @@
+# module load R/3.5.1-foss-2018b
+
 source('config.R'); # always load as functions are loaded within this script
 
 libinv(c('sf','dplyr','foreach'))
@@ -17,7 +19,7 @@ libinv(c('sf','dplyr','foreach'))
 #   mutate(dataset = 'amazonfish') %>%
 #   select(binomial,dataset) %>%
 #   st_buffer(0)
-# 
+# s
 # amazonfish$area_sqkm = units::drop_units(st_area(st_transform(amazonfish,54009))/10**6)
 # 
 # 
@@ -124,33 +126,44 @@ sp_filtered <- left_join(sp_filtered,id_tab) %>%
   select(id_no,binomial,dataset)
 
 
-# merge polygons toether ###
+# merge polygons together ###
 cat('Merging polygons..\n')
 
 # define ids of species to merge
-sp_to_merge = table(sp_filtered$binomial) %>% .[.>1] %>% names
+# sp_to_merge = table(sp_filtered$binomial) %>% .[.>1] %>% names
 
-to_merge <- sp_filtered %>% 
-  filter(binomial %in% sp_to_merge)
-to_merge <- split(to_merge,to_merge$id_no)
+# to_merge <- sp_filtered %>% 
+#   filter(binomial %in% sp_to_merge)
+to_merge <- split(sp_filtered,sp_filtered$id_no)
 
-merged <- parallel::mcmapply(function(i) st_union(to_merge[[i]] %>% st_buffer(1/120)) %>% st_sf(),
-                             seq_along(to_merge),mc.cores=10,SIMPLIFY=F) %>%
+ras <- raster::raster(res = 1/12, ext = raster::extent(c(-180,180,-90,90)))
+
+dir_tmp <- dir_('tmp_compile_species_ranges/')
+merged <- parallel::mcmapply(function(i){
+  # st_union(to_merge[[i]] %>% st_buffer(1/120)) %>% st_sf()
+  print(i)  
+  t <- to_merge[[i]]
+  t$val <- 1
+  r <- fasterize::fasterize(sf = t,raster = ras,field = 'val') %>%
+    raster::writeRaster(.,paste0(dir_tmp,i,'.tif'))
+  system(paste0("gdal_polygonize.py ", paste0(dir_tmp,i,'.tif')," ",paste0(dir_tmp,i,'.gpkg')," -q"))
+  return(
+    read_sf(paste0(dir_tmp,i,'.gpkg')) %>% st_combine %>% st_sf %>% mutate(id_no = names(to_merge[i]) %>% as.integer)
+  )
+  
+} ,
+seq_along(to_merge),mc.cores=10,SIMPLIFY=F) %>%
+  
   do.call('rbind',.) %>%
-  mutate(id_no = names(to_merge) %>% as.integer) %>%
   left_join(id_tab) %>%
   select(id_no,binomial)
+st_crs(merged) <- 4326
 
-merged$id_no <- names(to_merge)
-
-sp_final <- rbind(
-  merged,
-  sp_filtered %>% filter(!binomial %in% sp_to_merge) %>% select(-dataset) %>% rename(geometry = geom)
-)
+system(paste0('rm -rf ',dir_tmp))
 
 cat('Saving..\n')
 
-write_sf(sp_final,'proc/species_ranges_merged.gpkg')
+write_sf(merged,'proc/species_ranges_merged.gpkg')
 
 # HABITAT TYPE FROM FISHBASE-----------------------------------------------------------------------------------------
 
