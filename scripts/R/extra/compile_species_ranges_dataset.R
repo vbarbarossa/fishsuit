@@ -140,7 +140,7 @@ to_merge <- split(sp_filtered,sp_filtered$id_no)
 ras <- raster::raster(res = 1/12, ext = raster::extent(c(-180,180,-90,90)))
 
 dir_tmp <- dir_('tmp_compile_species_ranges/')
-merged <- parallel::mcmapply(function(i){
+merged <- mapply(function(i){
   
   print(i)  
   
@@ -151,43 +151,23 @@ merged <- parallel::mcmapply(function(i){
   t <- to_merge[[i]]
   t$val <- 1
   r <- fasterize::fasterize(sf = t,raster = ras,field = 'val') %>%
-    raster::writeRaster(.,paste0(dir_tmp,i,'.tif'))
+    raster::writeRaster(.,paste0(dir_tmp,i,'.tif'),overwrite=T)
   system(paste0("gdal_polygonize.py ", paste0(dir_tmp,i,'.tif')," ",paste0(dir_tmp,i,'.gpkg')," -q"))
+  
   return(
     read_sf(paste0(dir_tmp,i,'.gpkg')) %>% st_combine %>% st_sf %>% mutate(id_no = names(to_merge[i]) %>% as.integer)
   )
   
-},seq_along(to_merge),mc.cores=10,SIMPLIFY=F) %>%
+},seq_along(to_merge),SIMPLIFY = F) %>%
   
   do.call('rbind',.) %>%
   left_join(id_tab) %>%
   select(id_no,binomial)
 st_crs(merged) <- 4326
 
-system(paste0('rm -rf ',dir_tmp))
-
 cat('Saving..\n')
 
 write_sf(merged,'proc/species_ranges_merged.gpkg')
 
-# HABITAT TYPE FROM FISHBASE-----------------------------------------------------------------------------------------
-
-# variables to retrieve:
-#   initial range size (in km2)
-#   body length (in cm)
-#   climate zone
-#   trophic group
-#   habitat type
-#   commercial importance
-
-# RANGE SIZE
-
-
-# retrieve list of freshwater fish species available from fishbase
-# habitat <- ecology(custom_m$name) %>%
-#   select(name = Species, Stream, Lake = Lakes) %>%
-#   distinct()
-# 
-# habitat$OnlyLake <- 0
-# habitat$OnlyLake[habitat$Lake == -1 & (habitat$Stream == 0 | is.na(habitat$Stream))] <- -1
+system(paste0('rm -rf ',dir_tmp))
 
