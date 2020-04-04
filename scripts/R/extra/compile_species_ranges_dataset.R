@@ -140,7 +140,7 @@ to_merge <- split(sp_filtered,sp_filtered$id_no)
 ras <- raster::raster(res = 1/12, ext = raster::extent(c(-180,180,-90,90)))
 
 dir_tmp <- dir_('tmp_compile_species_ranges/')
-merged <- mapply(function(i){
+merged <- mapply(function(i){ # parallelized version with mcmapply gets into issues
   
   print(i)  
   
