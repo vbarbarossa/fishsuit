@@ -10,7 +10,7 @@ dir_habitat <- dir_(paste0('proc/iucn_habitat_list/'))
 token <- 'd361026f05b472e57b0ffe1fa5c9a768aaf3d8391abbb464293e9efe2bbbf733'
 
 # get unique species names
-sp_names <- read_sf('proc/species_ranges_merged.gpkg') %>% .$binomial
+sp_names <- sf::read_sf('proc/species_ranges_merged.gpkg') %>% .$binomial
 
 # retrieve the habitat type per species
 for(i in sp_names) {
