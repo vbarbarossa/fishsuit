@@ -19,6 +19,6 @@ for(i in sp_names[1:3]) {
   hab <- rl_habitats(as.character(i),key = token)$result$habitat
   saveRDS(hab,paste0(dir_habitat,i,'.rds'))
   
-  Sys.sleep(2)
+  Sys.sleep(1)
   
 }
