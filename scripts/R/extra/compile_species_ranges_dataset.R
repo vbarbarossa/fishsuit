@@ -137,7 +137,7 @@ cat('Merging polygons..\n')
 to_merge <- split(sp_filtered,sp_filtered$id_no)
 
 # template raster for the grid to be used
-ras <- raster::raster(res = 1/12, ext = raster::extent(c(-180,180,-90,90)))
+ras <- raster::raster('data/ldd.asc',crs = raster::crs(raster::raster()))
 
 dir_tmp <- dir_('tmp_compile_species_ranges/')
 merged <- mapply(function(i){ # parallelized version with mcmapply gets into issues
@@ -151,6 +151,7 @@ merged <- mapply(function(i){ # parallelized version with mcmapply gets into iss
   t <- to_merge[[i]]
   t$val <- 1
   r <- fasterize::fasterize(sf = t,raster = ras,field = 'val') %>%
+    mask(.,ras) %>%
     raster::writeRaster(.,paste0(dir_tmp,i,'.tif'),overwrite=T)
   system(paste0("gdal_polygonize.py ", paste0(dir_tmp,i,'.tif')," ",paste0(dir_tmp,i,'.gpkg')," -q"))
   
