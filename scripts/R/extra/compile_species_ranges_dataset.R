@@ -151,7 +151,7 @@ merged <- mapply(function(i){ # parallelized version with mcmapply gets into iss
   t <- to_merge[[i]]
   t$val <- 1
   r <- fasterize::fasterize(sf = t,raster = ras,field = 'val') %>%
-    mask(.,ras) %>%
+    raster::mask(.,ras) %>%
     raster::writeRaster(.,paste0(dir_tmp,i,'.tif'),overwrite=T)
   system(paste0("gdal_polygonize.py ", paste0(dir_tmp,i,'.tif')," ",paste0(dir_tmp,i,'.gpkg')," -q"))
   
