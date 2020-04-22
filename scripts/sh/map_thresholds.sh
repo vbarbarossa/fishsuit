@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -N 1
-#SBATCH --array 1-5
+#SBATCH --array 1-40
 #SBATCH -t 0:10:00
 #SBATCH -p normal
 #SBATCH --output=diag/map_thresholds_%a.out

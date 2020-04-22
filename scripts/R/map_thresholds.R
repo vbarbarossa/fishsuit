@@ -1,4 +1,3 @@
-#sbatch --array=1-11
 
 g <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
 
@@ -9,7 +8,7 @@ libinv(c('raster','foreach','dplyr'))
 # array will be var1*var2 of attrs
 attrs <- expand.grid(
   c('Qmi','Qma','Qzf','Qcv','Qve','Tma','Tmi','Tcv'), #'Qcv','Tcv'
-  climate_models
+  climate_models # 5
 )
 
 metric <- as.character(attrs[g,1])
@@ -20,7 +19,7 @@ cat('\nclimate model = ',clmod,'\nmetric = ',metric,'\n')
 yr <- c(timespan_hist[1],timespan_hist[2])
 
 # cleanup the M folders
-system(paste0('rm -r ','proc/',clmod,'/pcrglobwb_processed/M*'))
+# system(paste0('rm -r ','proc/',clmod,'/pcrglobwb_processed/M*'))
 
 dir_merged <- paste0('proc/',clmod,'/pcrglobwb_processed/merged/')
 dir_niches <- dir_(paste0('proc/',clmod,'/niches/'))
