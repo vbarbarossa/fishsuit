@@ -20,15 +20,12 @@ cat('\nclimate model = ',clmod,'\nmetric = ',metric,'\n')
 yr <- c(timespan_hist[1],timespan_hist[2])
 
 # cleanup the M folders
-system(paste0('rm -r ',dir_model,'proc/',clmod,'/pcrglobwb_processed/M*'))
+system(paste0('rm -r ','proc/',clmod,'/pcrglobwb_processed/M*'))
 
-dir_merged <- paste0(dir_model,'proc/',clmod,'/pcrglobwb_processed/merged/')
-dir_niches <- dir_(paste0(dir_model,'proc/',clmod,'/niches/'))
+dir_merged <- paste0('proc/',clmod,'/pcrglobwb_processed/merged/')
+dir_niches <- dir_(paste0('proc/',clmod,'/niches/'))
 
-# read IUCN ids
-iucn <- foreach(i = 1:2,.combine='rbind') %do% foreign::read.dbf(paste0(dir_data,'/FW_FISH_20181113/FW_FISH_PART_',i,'.dbf'))
-iucn.id <- as.character(sort(unique(iucn$id_no)))
-
+# list of input files (from single points ranges)
 infiles <- list.files('proc/ssp/single_points',full.names = T)
 ids <- lapply(infiles,function(x) strsplit(x[1],'/')[[1]][4] %>% strsplit(.,'\\.') %>% .[[1]] %>% .[1]) %>% do.call('c',.)
 
