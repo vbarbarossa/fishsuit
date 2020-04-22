@@ -1,7 +1,7 @@
 
 source('config.R'); # always load as functions are loaded within this script
 
-library(raster); library(sf)
+library(raster); library(sf); library(dplyr)
 
 df <- read_sf('proc/species_ranges_merged.gpkg')
 
