@@ -3,7 +3,8 @@ source('config.R'); # always load as functions are loaded within this script
 
 library(raster); library(sf); library(dplyr)
 
-df <- read_sf('proc/species_ranges_merged.gpkg')
+df <- read_sf('proc/species_ranges_merged.gpkg') %>%
+  filter(!st_is_empty(.))
 
 # read KG poly
 kg <- raster('data/Koeppen-Geiger-Classification-Reclassfied_5min_moderesampling.tif')
