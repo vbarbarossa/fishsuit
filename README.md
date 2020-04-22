@@ -21,17 +21,17 @@ This is a beta release. More details on input data and streamline of processes w
 
 ## Extras
 
-* scripts/R/extra/retrieve_habitat_iucn.R: uses the API from IUCN to retrieve info on species habitat
+* scripts/R/xtr/retrieve_habitat_iucn.R: uses the API from IUCN to retrieve info on species habitat
 
-* scripts/R/extra/analyze_habitat_iucn.R: compiles info from retrieve_habitat_iucn into a table
+* scripts/R/xtr/analyze_habitat_iucn.R: compiles info from retrieve_habitat_iucn into a table
 
-* scripts/R/extra/calc_global_mean_air_temp.R: NEED TO CHECK IF THIS IS THE ONE USED IN THE FINAL MODEL
+* scripts/R/xtr/calc_global_mean_air_temp.R: NEED TO CHECK IF THIS IS THE ONE USED IN THE FINAL MODEL
 
-* scripts/R/extra/compile_species_ranges_dataset: merge datasets of fish ranges from IUCN, Barbarossa et al. 2020 (PNAS), AmazonFISH into one lobal dataset with polygon vertices based on a 5 arcmin grid
+* scripts/R/xtr/compile_species_ranges_dataset: merge datasets of fish ranges from IUCN, Barbarossa et al. 2020 (PNAS), AmazonFISH into one lobal dataset with polygon vertices based on a 5 arcmin grid
 
-* scripts/R/extra/compile_traits.R: retrieve info on species' traits, range area, climate zone and compile them in a table
+* scripts/R/xtr/compile_traits.R: retrieve info on species' traits, range area, climate zone and compile them in a table
 
-* scripts/R/extra/thresholds_selection.R: analyze thresholds mapped for the species and check multicollinearity
+* scripts/R/xtr/thresholds_selection.R: analyze thresholds mapped for the species and check multicollinearity
 
 ## Functions
 
