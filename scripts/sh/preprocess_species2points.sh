@@ -9,4 +9,4 @@
 module load 2019
 module load R/3.5.1-foss-2018b
 
-Rscript scripts/R/preprocess_species2points.R
+Rscript scripts/R/pre/species2points.R
