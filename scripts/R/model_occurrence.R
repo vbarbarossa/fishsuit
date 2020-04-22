@@ -7,7 +7,7 @@ for(g in nodenr:nodenr){
   
   source('config.R'); # always load as functions are loaded within this script
   
-  libinv(c('raster','foreach'))
+  libinv(c('raster','foreach','dplyr'))
   
   clmod = climate_models[g]
   scen = scenarios[scenarios != 'hist'] #<
@@ -31,12 +31,12 @@ for(g in nodenr:nodenr){
   
   niche_list <- list()
   for(j in seq_along(vars)){
-    niche <- readRDS(paste0(dir_model,clmod,'/niches/',vars[j],'.rds'))
+    niche <- readRDS(paste0('proc/',clmod,'/niches/',vars[j],'.rds'))
     
     # remove ranges with NAs
     # remove ranges with SD = 0, as they are sampled for only one 5 arcmin cell
     # niche <- niche[!is.na(niche$mean),] # & niche$sd != 0
-    niche <- niche[,c('IUCN_ID',paste0(thresholds[j],'%'))]
+    niche <- niche[,c('ID',paste0(thresholds[j],'%'))]
     colnames(niche)[2] <- paste0(vars[j],'_',colnames(niche)[2])
     
     niche_list[[j]] <- niche
@@ -63,7 +63,7 @@ for(g in nodenr:nodenr){
   # STEP 1 ###
   # filter out species outside the pcrglobwb domain and
   # with less than a user defined number of grid-cells threshold
-  d <- readRDS(paste0(dir_model,clmod,'/niches/Qmi.rds'))
+  d <- readRDS(paste0('proc/',clmod,'/niches/Qmi.rds'))
   step1 <- d[!is.na(d$mean) & d$no.grids >= min_no_grid_cells,1]
   
   cat('STEP 1: removing ',(nrow(niche) - length(step1)),' species represented by less than ',min_no_grid_cells,' grid-cell or falling out of the pcr-globwb domain\n')
@@ -101,447 +101,231 @@ for(g in nodenr:nodenr){
   nich <- niches_f[,1:(length(vars)+1)]
   colnames(nich) <- c('id_no',paste0(vars,'_th'))
   
-  dir_out <- dir_(paste0(dir_model,clmod,'/modelled_occurrence//'))
+  dir_out <- dir_(paste0('proc/',clmod,'/modelled_occurrence//'))
   
-  if(model_type == 'year_targets'){
+  attr.tab <- foreach(i = seq_along(warming_targets),.combine = 'rbind') %do% {
+    data.frame(
+      clmod = sapply(strsplit(as.character(warming_tab[,1]),'_'),function(x) x[1]),
+      scen = sapply(strsplit(as.character(warming_tab[,1]),'_'),function(x) x[2]),
+      warmt = paste0(warming_targets[i],'C'),
+      year = warming_tab[,i+1]
+    )
+  }
+  
+  attr.tab <- attr.tab[!is.na(attr.tab$year) & attr.tab$clmod == clmod,]
+  row.names(attr.tab) <- NULL
+  
+  comboscen <- as.character(apply(attr.tab[,2:ncol(attr.tab)],1,function(x) paste(x,collapse = '_')))
+  # when need to build the table, can simply create three columns for scen, year and warmt 
+  # and assign categories by splitting the string
+  
+  # function that takes in input a species and calculates the suitability 
+  # of each cell based on the thresholds
+  build_table <- function(n){
     
-    yrscen <- expand.grid(years,scen)
+    sp <- nich[n,'id_no']
     
-    # function that takes in input a species and calculates the suitability 
-    # of each cell based on the thresholds
-    build_table <- function(n){
-      
-      sp <- nich[n,'id_no']
-      
-      pts <- readRDS(paste0(dir_master,'ssp/ssp_points/',sp,'.rds'))
-      
-      tab <- cbind(cbind(pts@data,pts@coords)[2:3], #includes info on which cells are
-                   foreach(v = 1:length(vars),.combine = 'cbind') %do% {
+    # pts <- ranges %>% filter(id_no == sp) %>% st_cast('POINT')
+    pts <- readRDS(paste0(dir_master,'ssp/ssp_points/',sp,'.rds'))
+    
+    tab <- cbind(
+      # st_coordinates(pts),
+      cbind(pts@data,pts@coords)[2:3], #includes info on which cells are
+                 foreach(v = 1:length(vars),.combine = 'cbind') %do% {
+                   
+                   # first check hist data
+                   r <- raster(paste0('proc/',clmod,'/pcrglobwb_processed/merged/',
+                                      vars[v],'_hist.tif'))
+                   
+                   val <- extract(r,pts)
+                   
+                   if(vars[v] == 'Tma'){
+                     return(val <= nich[n,paste0(vars[v],'_th')])
+                   }
+                   if(vars[v] == 'Qzf'){
+                     return(val <= nich[n,paste0(vars[v],'_th')])
+                   }
+                   if(vars[v] == 'Qmi'){
+                     return(val >= nich[n,paste0(vars[v],'_th')])
+                   }
+                 },
+                 foreach(v = 1:length(vars),.combine = 'cbind') %do% {
+                   
+                   foreach(s = 1:length(comboscen),.combine = 'cbind') %do% {
                      
-                     # first check hist data
-                     r <- raster(paste0(dir_model,clmod,'/pcrglobwb_processed/merged/',
-                                        vars[v],'_hist.tif'))
+                     # yr <- as.character(yrscen[s,1])
+                     # sc <- as.character(yrscen[s,2])
+                     
+                     r <- raster(paste0('proc/',clmod,'/pcrglobwb_processed/merged/',
+                                        vars[v],'_',comboscen[s],'.tif'))
                      
                      val <- extract(r,pts)
                      
                      if(vars[v] == 'Tma'){
-                       return(val <= nich[n,paste0(vars[v],'_th')])
+                       return(
+                         val <= nich[n,paste0(vars[v],'_th')]
+                       )
                      }
                      if(vars[v] == 'Qzf'){
-                       return(val <= nich[n,paste0(vars[v],'_th')])
+                       return(
+                         val <= nich[n,paste0(vars[v],'_th')]
+                       )
                      }
                      if(vars[v] == 'Qmi'){
-                       return(val >= nich[n,paste0(vars[v],'_th')])
-                     }
-                   },
-                   foreach(v = 1:length(vars),.combine = 'cbind') %do% {
-                     
-                     foreach(s = 1:nrow(yrscen),.combine = 'cbind') %do% {
-                       
-                       yr <- as.character(yrscen[s,1])
-                       sc <- as.character(yrscen[s,2])
-                       
-                       r <- raster(paste0(dir_model,clmod,'/pcrglobwb_processed/merged/',
-                                          vars[v],'_',sc,'.tif'))
-                       
-                       val <- extract(r,pts)
-                       
-                       if(vars[v] == 'Tma'){
-                         return(
-                           val <= nich[n,paste0(vars[v],'_th')]
-                         )
-                       }
-                       if(vars[v] == 'Qzf'){
-                         return(
-                           val <= nich[n,paste0(vars[v],'_th')]
-                         )
-                       }
-                       if(vars[v] == 'Qmi'){
-                         return(
-                           val >= nich[n,paste0(vars[v],'_th')]
-                         )
-                       }
+                       return(
+                         val >= nich[n,paste0(vars[v],'_th')]
+                       )
                      }
                      
                    }
-      )
-      #assign col names to the table
-      colnames(tab) <- c('x','y',
-                         paste0(vars,'_hist'),
-                         paste0(rep(vars,each=nrow(yrscen)),
-                                foreach(i = 1:nrow(yrscen),.combine = 'c') %do% paste0('_',yrscen[i,1],'_',yrscen[i,2])
-                         )
-      )
-      
-      # maybe better write as RDS?
-      # write.csv(tab,paste0(dir_out,sp,'.csv'),row.names = T) #impo to keep number of rows for later modelling
-      saveRDS(tab,paste0(dir_out,sp,'.rds'))
-      
-    }
-    
-    invisible(
-      parallel::mcmapply(build_table,1:nrow(nich),mc.silent = TRUE,mc.cores = ncores)
+                   
+                 }
+    )
+    #assign col names to the table
+    colnames(tab) <- c('x','y',
+                       paste0(vars,'_hist'),
+                       paste(rep(vars,each=length(comboscen)),comboscen,sep='_')
     )
     
-    cat('..ended!\n')
-    cat(paste0(rep('-',30)),'\n\n')
-    
-    #-------------------------------------------------------------------------------------------------------
-    # ESH_tab
-    
-    cat(paste0(rep('-',30)),'\n')
-    cat('Build ESH_tab\n')
-    
-    tabs <- list.files(dir_out,pattern='.rds')
-    ids <- as.character(
-      sapply(
-        list.files(dir_out,pattern='.rds'),function(x) strsplit(strsplit(x,'_')[[1]][1],'\\.')[[1]][1]
-      )
-    )
-    
-    
-    # function to calculate ESH for each species-tab
-    esh_calc <- function(sp){
-      # read the table
-      t <- readRDS(paste0(dir_out,sp,'.rds'))
-      t <- t[complete.cases(t),] #remove rows that contain one or more NAs
-      
-      d <- data.frame(
-        id_no = rep(sp,length(years)),
-        no.cells = nrow(t),
-        ESH_all = NA,
-        ESH_Q = NA,
-        ESH_T = NA,
-        ESH_QnT = NA,
-        years = NA,
-        scen = sn #sn is the looped scen
-      )
-      
-      for(y in 1:length(years)){
-        
-        # select scenario and year
-        th <- t[,paste0(vars,'_hist')] #historical
-        ts <- t[,paste0(vars,'_',years[y],'_',sn)] #scenario
-        #filter out rows of ts that are already excluded in th due to the quantile threshold
-        ts <- ts[-which(unname(apply(th,1,all) == FALSE)),]
-        
-        d$ESH_all[y] <- sum(apply(ts,1,all) == FALSE)/nrow(ts)*100
-        d$ESH_Q[y] <- sum(apply(ts[,paste0(c('Qmi','Qzf'),'_',years[y],'_',sn)],1,all) == FALSE)/nrow(ts)*100
-        d$ESH_T[y] <- sum(ts[,paste0(c('Tma'),'_',years[y],'_',sn)] == FALSE)/nrow(ts)*100
-        d$ESH_QnT[y] <- sum(apply(cbind(apply(ts[,paste0(c('Qmi','Qzf'),'_',years[y],'_',sn)],1,all),
-                                        ts[,paste0(c('Tma'),'_',years[y],'_',sn)])
-                                  ,1,any) == FALSE)/nrow(ts)*100
-        d$years[y] <- years[y]
-        
-      }
-      
-      return(d)
-    }
-    
-    # calculate ESH for each scenario and year span
-    ESH_tab <- foreach(sn = scen,.combine = 'rbind') %do% {
-      
-      do.call('rbind',
-              parallel::mcmapply(esh_calc,sp = ids,SIMPLIFY = F,mc.cores = 20)
-      )
-      
-    }
-    row.names(ESH_tab) <- NULL
-    ESH_tab$scen <- as.factor(ESH_tab$scen)
-    ESH_tab$years <- as.factor(ESH_tab$years)
-    
-    out <- paste0(dir_model,clmod,'/ESH_tab_',years,'.csv')
-    write.csv(ESH_tab,out,row.names = F)
-    
-    cat('successfully written to ',out,'\n')
-    cat(paste0(rep('-',30)),'\n\n')
-    
-    
-    #----------------------------------------------------------------------------------------------------
-    # SUMMARIZE at the cell-level
-    
-    cat(paste0(rep('-',30)),'\n')
-    cat('Build SR_tab\n')
-    
-    for(sc in scen){
-      #<<<<<< need to remember how this was done and re-do it (maybe in the initial scripts 01-03 on milkun )
-      tab <- readRDS(paste0(dir_master,'ssp/tab_template.rds'))
-      
-      for(v in c(vars,'Q_all','T_all','any','all','both_QT')) tab@data[,v] <- NA
-      
-      # <<<<<<<< need to parallelize this
-      for(i in ids){
-        
-        t <- readRDS(paste0(dir_out,i,'.rds'))
-        t$X <- as.numeric(row.names(t)) #the way it was coded based on csv
-        th <- t[,paste0(vars,'_hist')] #historical
-        
-        t <- t[-which(unname(apply(th,1,all) == FALSE)),]
-        
-        #all
-        tab@data$occ[t$X] <- apply(cbind(tab@data$occ[t$X],rep(1,nrow(t))),1,function(x) sum(x,na.rm=T)) 
-        
-        tab@data[t$X,'all'] <- apply(cbind(tab@data[t$X,'all'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',years,'_',sc)],1,all)))
-                                     ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'any'] <- apply(cbind(tab@data[t$X,'any'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',years,'_',sc)],1,any)))
-                                     ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'Q_all'] <- apply(cbind(tab@data[t$X,'Q_all'],as.integer(apply(t[,paste0(c('Qmi','Qzf'),'_',years,'_',sc)],1,all)))
-                                       ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'T_all'] <- apply(cbind(tab@data[t$X,'T_all'],as.integer(t[,paste0(c('Tma'),'_',years,'_',sc)]))
-                                       ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'both_QT'] <- apply(cbind(tab@data[t$X,'both_QT'],as.integer(apply(cbind(
-          apply(t[,paste0(c('Qmi','Qzf'),'_',years,'_',sc)],1,all),
-          t[,paste0(c('Tma'),'_',years,'_',sc)]
-        ),1,any)))
-        ,1,function(x) sum(x,na.rm=T))
-        
-        
-        for(v in vars) tab@data[t$X,v] <- apply(cbind(tab@data[t$X,v],as.integer(t[,paste0(v,'_',years,'_',sc)]))
-                                                ,1,function(x) sum(x,na.rm=T))
-        
-      }
-      
-      saveRDS(tab,paste0(dir_model,clmod,'/SR_tab_',sc,'_',years,'.rds'))
-      
-    }
-    
-    
-    cat('\n\n..done!\n')
-    cat(paste0(rep('-',30)),'\n\n')
-    
+    # maybe better write as RDS?
+    # write.csv(tab,paste0(dir_out,sp,'.csv'),row.names = T) #impo to keep number of rows for later modelling
+    saveRDS(tab,paste0(dir_out,sp,'.rds'))
     
   }
   
-  if(model_type == 'warming_targets'){
-    
-    attr.tab <- foreach(i = seq_along(warming_targets),.combine = 'rbind') %do% {
-      data.frame(
-        clmod = sapply(strsplit(as.character(warming_tab[,1]),'_'),function(x) x[1]),
-        scen = sapply(strsplit(as.character(warming_tab[,1]),'_'),function(x) x[2]),
-        warmt = paste0(warming_targets[i],'C'),
-        year = warming_tab[,i+1]
-      )
-    }
-    
-    attr.tab <- attr.tab[!is.na(attr.tab$year) & attr.tab$clmod == clmod,]
-    row.names(attr.tab) <- NULL
-    
-    comboscen <- as.character(apply(attr.tab[,2:ncol(attr.tab)],1,function(x) paste(x,collapse = '_')))
-    # when need to build the table, can simply create three columns for scen, year and warmt 
-    # and assign categories by splitting the string
-    
-    # function that takes in input a species and calculates the suitability 
-    # of each cell based on the thresholds
-    build_table <- function(n){
-      
-      sp <- nich[n,'id_no']
-      
-      pts <- readRDS(paste0(dir_master,'ssp/ssp_points/',sp,'.rds'))
-      
-      tab <- cbind(cbind(pts@data,pts@coords)[2:3], #includes info on which cells are
-                   foreach(v = 1:length(vars),.combine = 'cbind') %do% {
-                     
-                     # first check hist data
-                     r <- raster(paste0(dir_model,clmod,'/pcrglobwb_processed/merged/',
-                                        vars[v],'_hist.tif'))
-                     
-                     val <- extract(r,pts)
-                     
-                     if(vars[v] == 'Tma'){
-                       return(val <= nich[n,paste0(vars[v],'_th')])
-                     }
-                     if(vars[v] == 'Qzf'){
-                       return(val <= nich[n,paste0(vars[v],'_th')])
-                     }
-                     if(vars[v] == 'Qmi'){
-                       return(val >= nich[n,paste0(vars[v],'_th')])
-                     }
-                   },
-                   foreach(v = 1:length(vars),.combine = 'cbind') %do% {
-                     
-                     foreach(s = 1:length(comboscen),.combine = 'cbind') %do% {
-                       
-                       # yr <- as.character(yrscen[s,1])
-                       # sc <- as.character(yrscen[s,2])
-                       
-                       r <- raster(paste0(dir_model,clmod,'/pcrglobwb_processed/merged/',
-                                          vars[v],'_',comboscen[s],'.tif'))
-                       
-                       val <- extract(r,pts)
-                       
-                       if(vars[v] == 'Tma'){
-                         return(
-                           val <= nich[n,paste0(vars[v],'_th')]
-                         )
-                       }
-                       if(vars[v] == 'Qzf'){
-                         return(
-                           val <= nich[n,paste0(vars[v],'_th')]
-                         )
-                       }
-                       if(vars[v] == 'Qmi'){
-                         return(
-                           val >= nich[n,paste0(vars[v],'_th')]
-                         )
-                       }
-                       
-                     }
-                     
-                   }
-      )
-      #assign col names to the table
-      colnames(tab) <- c('x','y',
-                         paste0(vars,'_hist'),
-                         paste(rep(vars,each=length(comboscen)),comboscen,sep='_')
-      )
-      
-      # maybe better write as RDS?
-      # write.csv(tab,paste0(dir_out,sp,'.csv'),row.names = T) #impo to keep number of rows for later modelling
-      saveRDS(tab,paste0(dir_out,sp,'.rds'))
-      
-    }
-    
-    invisible(
-      parallel::mcmapply(build_table,1:nrow(nich),mc.silent = TRUE,mc.cores = ncores)
+  invisible(
+    parallel::mcmapply(build_table,1:nrow(nich),mc.silent = TRUE,mc.cores = ncores)
+  )
+  
+  cat('..ended!\n')
+  cat(paste0(rep('-',30)),'\n\n')
+  
+  #-------------------------------------------------------------------------------------------------------
+  # ESH_tab
+  
+  cat(paste0(rep('-',30)),'\n')
+  cat('Build ESH_tab\n')
+  
+  tabs <- list.files(dir_out,pattern='.rds')
+  ids <- as.character(
+    sapply(
+      list.files(dir_out,pattern='.rds'),function(x) strsplit(strsplit(x,'_')[[1]][1],'\\.')[[1]][1]
     )
+  )
+  
+  
+  # function to calculate ESH for each species-tab
+  esh_calc <- function(sp){ #,sn
+    # read the table
+    t <- readRDS(paste0(dir_out,sp,'.rds'))
+    t <- t[complete.cases(t),] #remove rows that contain one or more NAs
     
-    cat('..ended!\n')
-    cat(paste0(rep('-',30)),'\n\n')
-    
-    #-------------------------------------------------------------------------------------------------------
-    # ESH_tab
-    
-    cat(paste0(rep('-',30)),'\n')
-    cat('Build ESH_tab\n')
-    
-    tabs <- list.files(dir_out,pattern='.rds')
-    ids <- as.character(
-      sapply(
-        list.files(dir_out,pattern='.rds'),function(x) strsplit(strsplit(x,'_')[[1]][1],'\\.')[[1]][1]
-      )
+    d <- data.frame(
+      id_no = rep(sp,length(comboscen)),
+      no.cells = nrow(t),
+      ESH_all = NA,
+      ESH_Q = NA,
+      ESH_T = NA,
+      ESH_QnT = NA,
+      comboscen = comboscen #sn is the looped scen
     )
-    
-    
-    # function to calculate ESH for each species-tab
-    esh_calc <- function(sp){ #,sn
-      # read the table
-      t <- readRDS(paste0(dir_out,sp,'.rds'))
-      t <- t[complete.cases(t),] #remove rows that contain one or more NAs
+    for(y in 1:nrow(d)){
       
-      d <- data.frame(
-        id_no = rep(sp,length(comboscen)),
-        no.cells = nrow(t),
-        ESH_all = NA,
-        ESH_Q = NA,
-        ESH_T = NA,
-        ESH_QnT = NA,
-        comboscen = comboscen #sn is the looped scen
-      )
-      for(y in 1:nrow(d)){
-        
-        sn = d$comboscen[y]
-        
-        # select scenario and year
-        th <- t[,paste0(vars,'_hist')] #historical
-        ts <- t[,paste0(vars,'_',sn)] #scenario
-        #filter out rows of ts that are already excluded in th due to the quantile threshold
-        ts <- ts[-which(unname(apply(th,1,all) == FALSE)),]
-        
-        d$ESH_all[y] <- sum(apply(ts,1,all) == FALSE)/nrow(ts)*100
-        d$ESH_Q[y] <- sum(apply(ts[,paste0(c('Qmi','Qzf'),'_',sn)],1,all) == FALSE)/nrow(ts)*100
-        d$ESH_T[y] <- sum(ts[,paste0(c('Tma'),'_',sn)] == FALSE)/nrow(ts)*100
-        d$ESH_QnT[y] <- sum(apply(cbind(apply(ts[,paste0(c('Qmi','Qzf'),'_',sn)],1,all),
-                                        ts[,paste0(c('Tma'),'_',sn)])
-                                  ,1,any) == FALSE)/nrow(ts)*100
-      }
-      return(d)
+      sn = d$comboscen[y]
+      
+      # select scenario and year
+      th <- t[,paste0(vars,'_hist')] #historical
+      ts <- t[,paste0(vars,'_',sn)] #scenario
+      #filter out rows of ts that are already excluded in th due to the quantile threshold
+      ts <- ts[-which(unname(apply(th,1,all) == FALSE)),]
+      
+      d$ESH_all[y] <- sum(apply(ts,1,all) == FALSE)/nrow(ts)*100
+      d$ESH_Q[y] <- sum(apply(ts[,paste0(c('Qmi','Qzf'),'_',sn)],1,all) == FALSE)/nrow(ts)*100
+      d$ESH_T[y] <- sum(ts[,paste0(c('Tma'),'_',sn)] == FALSE)/nrow(ts)*100
+      d$ESH_QnT[y] <- sum(apply(cbind(apply(ts[,paste0(c('Qmi','Qzf'),'_',sn)],1,all),
+                                      ts[,paste0(c('Tma'),'_',sn)])
+                                ,1,any) == FALSE)/nrow(ts)*100
     }
+    return(d)
+  }
+  
+  # calculate ESH for each scenario and year span
+  ESH_tab <- 
+    do.call('rbind',
+            parallel::mcmapply(esh_calc,sp = ids,SIMPLIFY = F,mc.cores = ncores)
+    )
+  
+  row.names(ESH_tab) <- NULL
+  ESH_tab$comboscen <- as.factor(ESH_tab$comboscen)
+  
+  out <- paste0(dir_model,clmod,'/ESH_tab.csv')
+  write.csv(ESH_tab,out,row.names = F)
+  
+  cat('successfully written to ',out,'\n')
+  cat(paste0(rep('-',30)),'\n\n')
+  
+  
+  #----------------------------------------------------------------------------------------------------
+  # SUMMARIZE at the cell-level
+  
+  cat(paste0(rep('-',30)),'\n')
+  cat('Build SR_tab\n')
+  
+  for(sc in comboscen){
+    #<<<<<< need to remember how this was done and re-do it (maybe in the initial scripts 01-03 on milkun )
+    tab <- readRDS(paste0(dir_master,'ssp/tab_template.rds'))
     
-    # calculate ESH for each scenario and year span
-    ESH_tab <- 
-      do.call('rbind',
-              parallel::mcmapply(esh_calc,sp = ids,SIMPLIFY = F,mc.cores = ncores)
-      )
+    for(v in c(vars,'Q_all','T_all','any','all','both_QT')) tab@data[,v] <- NA
     
-    row.names(ESH_tab) <- NULL
-    ESH_tab$comboscen <- as.factor(ESH_tab$comboscen)
-    
-    out <- paste0(dir_model,clmod,'/ESH_tab.csv')
-    write.csv(ESH_tab,out,row.names = F)
-    
-    cat('successfully written to ',out,'\n')
-    cat(paste0(rep('-',30)),'\n\n')
-    
-    
-    #----------------------------------------------------------------------------------------------------
-    # SUMMARIZE at the cell-level
-    
-    cat(paste0(rep('-',30)),'\n')
-    cat('Build SR_tab\n')
-    
-    for(sc in comboscen){
-      #<<<<<< need to remember how this was done and re-do it (maybe in the initial scripts 01-03 on milkun )
-      tab <- readRDS(paste0(dir_master,'ssp/tab_template.rds'))
+    # <<<<<<<< need to parallelize this
+    for(i in ids){
       
-      for(v in c(vars,'Q_all','T_all','any','all','both_QT')) tab@data[,v] <- NA
+      t <- readRDS(paste0(dir_out,i,'.rds'))
+      t$X <- as.numeric(row.names(t)) #the way it was coded based on csv
+      th <- t[,paste0(vars,'_hist')] #historical
       
-      # <<<<<<<< need to parallelize this
-      for(i in ids){
-        
-        t <- readRDS(paste0(dir_out,i,'.rds'))
-        t$X <- as.numeric(row.names(t)) #the way it was coded based on csv
-        th <- t[,paste0(vars,'_hist')] #historical
-        
-        t <- t[-which(unname(apply(th,1,all) == FALSE)),]
-        
-        #all
-        tab@data$occ[t$X] <- apply(cbind(tab@data$occ[t$X],rep(1,nrow(t))),1,function(x) sum(x,na.rm=T)) 
-        
-        tab@data[t$X,'all'] <- apply(cbind(tab@data[t$X,'all'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',sc)],1,all)))
+      t <- t[-which(unname(apply(th,1,all) == FALSE)),]
+      
+      #all
+      tab@data$occ[t$X] <- apply(cbind(tab@data$occ[t$X],rep(1,nrow(t))),1,function(x) sum(x,na.rm=T)) 
+      
+      tab@data[t$X,'all'] <- apply(cbind(tab@data[t$X,'all'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',sc)],1,all)))
+                                   ,1,function(x) sum(x,na.rm=T))
+      
+      
+      tab@data[t$X,'any'] <- apply(cbind(tab@data[t$X,'any'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',sc)],1,any)))
+                                   ,1,function(x) sum(x,na.rm=T))
+      
+      
+      tab@data[t$X,'Q_all'] <- apply(cbind(tab@data[t$X,'Q_all'],as.integer(apply(t[,paste0(c('Qmi','Qzf'),'_',sc)],1,all)))
                                      ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'any'] <- apply(cbind(tab@data[t$X,'any'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',sc)],1,any)))
-                                     ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'Q_all'] <- apply(cbind(tab@data[t$X,'Q_all'],as.integer(apply(t[,paste0(c('Qmi','Qzf'),'_',sc)],1,all)))
-                                       ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'T_all'] <- apply(cbind(tab@data[t$X,'T_all'],as.integer(t[,paste0(c('Tma'),'_',sc)]))
-                                       ,1,function(x) sum(x,na.rm=T))
-        
-        
-        tab@data[t$X,'both_QT'] <- apply(cbind(tab@data[t$X,'both_QT'],as.integer(apply(cbind(
-          apply(t[,paste0(c('Qmi','Qzf'),'_',sc)],1,all),
-          t[,paste0(c('Tma'),'_',sc)]
-        ),1,any)))
-        ,1,function(x) sum(x,na.rm=T))
-        
-        
-        for(v in vars) tab@data[t$X,v] <- apply(cbind(tab@data[t$X,v],as.integer(t[,paste0(v,'_',sc)]))
-                                                ,1,function(x) sum(x,na.rm=T))
-        
-      }
       
-      saveRDS(tab,paste0(dir_model,clmod,'/SR_tab_',sc,'.rds'))
+      
+      tab@data[t$X,'T_all'] <- apply(cbind(tab@data[t$X,'T_all'],as.integer(t[,paste0(c('Tma'),'_',sc)]))
+                                     ,1,function(x) sum(x,na.rm=T))
+      
+      
+      tab@data[t$X,'both_QT'] <- apply(cbind(tab@data[t$X,'both_QT'],as.integer(apply(cbind(
+        apply(t[,paste0(c('Qmi','Qzf'),'_',sc)],1,all),
+        t[,paste0(c('Tma'),'_',sc)]
+      ),1,any)))
+      ,1,function(x) sum(x,na.rm=T))
+      
+      
+      for(v in vars) tab@data[t$X,v] <- apply(cbind(tab@data[t$X,v],as.integer(t[,paste0(v,'_',sc)]))
+                                              ,1,function(x) sum(x,na.rm=T))
       
     }
     
-    
-    cat('\n\n..done!\n')
-    cat(paste0(rep('-',30)),'\n\n')
-    
+    saveRDS(tab,paste0(dir_model,clmod,'/SR_tab_',sc,'.rds'))
     
   }
+  
+  
+  cat('\n\n..done!\n')
+  cat(paste0(rep('-',30)),'\n\n')
+  
+  
+  
   
 }

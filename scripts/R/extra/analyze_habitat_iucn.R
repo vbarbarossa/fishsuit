@@ -1,8 +1,9 @@
-# retrieve habitat type
-library(foreach);
-source('R/functions.R'); source('R/_dir_loc.R');
 
-dir_habitat <- dir_(paste0(dir_proc,'ssp/habitats/'))
+source('config.R');
+
+libinv(c('dplyr','foreach'))
+
+dir_habitat <- 'proc/iucn_habitat_list/'
 
 # put single habitat lists in one list
 list_files <- list.files(dir_habitat)

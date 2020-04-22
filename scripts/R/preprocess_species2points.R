@@ -8,10 +8,11 @@ libinv(c('raster','foreach','dplyr','sf'))
 
 # read the IUCN species list
 cat('Reading ranges shapefile..\n')
-ranges <- lapply(1:2,function(x) paste0(dir_data,'FW_FISH_20181113/FW_FISH_PART_',x,'.shp') %>% read_sf) %>% do.call('rbind',.)
+ranges <- read_sf('proc/species_ranges_merged.gpkg')
 
 # split to parallelize the run
 cat('Splitting the ranges shapefile for parallelized runs..\n')
+
 # create ids groups
 ids_split <- ranges %>% 
   pull(id_no) %>%
@@ -23,7 +24,8 @@ ranges_split <- lapply(ids_split,function(x) ranges %>% filter(id_no %in% x))
 
 cat('Run algorithm..\n')
 source('scripts/R/fun/range2table.R')
-parallel::mcmapply(range2table,in_shapefile_ranges = ranges_split,
+parallel::mcmapply(range2table,
+                   in_shapefile_ranges = ranges_split,
                    out_shapefile_multipoints = paste0('sp_points_',1:length(ranges_split))%>% as.list,
                    out_dir_shapefile_multipoints = 'proc/ssp/',
                    mask_lyr = 'data/ldd.asc',
