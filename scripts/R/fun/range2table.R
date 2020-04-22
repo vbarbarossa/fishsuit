@@ -14,7 +14,7 @@ range2table <- function(
   library(valerioUtils)
   libinv(c('raster','sf','dplyr'))
   
-   # make sure this directory is created --> later change settings to include user specified working dir
+  # make sure this directory is created --> later change settings to include user specified working dir
   out_dir_shapefile_multipoints <- dir_(out_dir_shapefile_multipoints)
   
   # generate template table from empty raster---------------------------------------
@@ -30,7 +30,13 @@ range2table <- function(
   xytab <- as.data.frame(coordinates(ras))[!is.na(as.data.frame(ras)),]
   
   # convert to sf
-  tab <- st_as_sf(xytab, coords = c('x', 'y'), crs = crs(ras))
+  tab <- st_as_sf(xytab, coords = c('x', 'y'), crs = crs(ras)) %>%
+    mutate(row_no = 1:nrow(.))
+  
+  # sample cell area
+  cat('Extracting cell area for the template..\n')
+  ra <- raster('data/pcrglobwb_cellarea.tif')/10**6
+  tab$area <- extract(ra,tab)
   
   # save template table shapefile
   if(!is.null(template_points)){
@@ -50,18 +56,24 @@ range2table <- function(
   cat('Computing sparse table..\n')
   lst <- st_contains(ranges,tab,sparse = T)
   
-  cat('Merging and saving ranges as MULTIPOINT feature shapefile..\n')
-  pts <- lapply(1:length(lst),
-         function(n) tab[lst[[n]],] %>% mutate(id_no = ids[n])  %>% group_by(id_no) %>% summarize()
-  ) %>% do.call('rbind',.) %>% group_by(id_no) %>% summarize()
-  st_write(pts,paste0(dir_(out_dir_shapefile_multipoints),'/',out_shapefile_multipoints,'.gpkg'))
+  cat('Saving single ranges as POINT shapefiles..\n')
+  lapply(1:length(lst),
+         function(n) saveRDS(tab[lst[[n]],],paste0(dir_(dir_single_ranges),'/',ids[n],'.rds')  )
+  )
   
-  if(!is.null(dir_single_ranges)){
-    cat('Saving single ranges as POINT shapefiles..\n')
-    invisible(lapply(1:nrow(pts),
-                     function(n) saveRDS(pts[n,],paste0(dir_(dir_single_ranges),'/',pull(pts[n,],id_no),'.rds')) 
-    ))
-  }
+  # MULTIPOLYGON APPROACH:
+  # cat('Merging and saving ranges as MULTIPOINT feature shapefile..\n')
+  # pts <- lapply(1:length(lst),
+  #        function(n) tab[lst[[n]],] %>% mutate(id_no = ids[n])  %>% group_by(id_no) %>% summarize()
+  # ) %>% do.call('rbind',.) %>% group_by(id_no) %>% summarize()
+  # st_write(pts,paste0(dir_(out_dir_shapefile_multipoints),'/',out_shapefile_multipoints,'.gpkg'))
+  
+  # if(!is.null(dir_single_ranges)){
+  #   cat('Saving single ranges as POINT shapefiles..\n')
+  #   invisible(lapply(1:nrow(pts),
+  #                    function(n) saveRDS(pts[n,],paste0(dir_(dir_single_ranges),'/',pull(pts[n,],id_no),'.rds')) 
+  #   ))
+  # }
   
   if(!is.null(sparse_table)){
     cat('Saving sparse table..\n')

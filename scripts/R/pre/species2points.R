@@ -34,15 +34,15 @@ parallel::mcmapply(range2table,
                    mc.cores = ncores, SIMPLIFY = F
 )
 
-# merge the multipoint shapefiles together
-cat('Binding together and saving MULTIPOINT shapefiles..\n')
-files <- list.files('proc/ssp',pattern = '.gpkg',full.names = T)
-points_merged <- lapply(files,read_sf) %>% do.call('rbind',.)
-st_write(points_merged,'proc/ssp/sp_points.gpkg')
+# # merge the multipoint shapefiles together
+# cat('Binding together and saving MULTIPOINT shapefiles..\n')
+# files <- list.files('proc/ssp',pattern = '.gpkg',full.names = T)
+# points_merged <- lapply(files,read_sf) %>% do.call('rbind',.)
+# st_write(points_merged,'proc/ssp/sp_points.gpkg')
+# 
+# lapply(files,function(x) system(paste0('rm -r ',x)))
 
-lapply(files,function(x) system(paste0('rm -r ',x)))
-
-# diagnostics
+# # diagnostics
 # range2table(in_shapefile_ranges = ranges_split[[1]],
 #             out_shapefile_multipoints = paste0('sp_points_',1:length(ranges_split))[1],
 #             out_dir_shapefile_multipoints = 'proc/ssp/',
