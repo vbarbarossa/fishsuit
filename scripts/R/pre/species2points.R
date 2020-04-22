@@ -6,7 +6,7 @@ ncores <- 6
 
 libinv(c('raster','foreach','dplyr','sf'))
 
-# read the IUCN species list
+# read the species ranges
 cat('Reading ranges shapefile..\n')
 ranges <- read_sf('proc/species_ranges_merged.gpkg')
 
