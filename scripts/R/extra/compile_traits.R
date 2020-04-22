@@ -23,11 +23,11 @@ df$area <- units::drop_units(st_area(st_transform(df,54009))/10**6)
 # LOTIC-LENTIC -------------------------------------------------------------------------------------------------------
 
 # use both IUCN and fishbase data to assign lotic-lentic habitat type
-hiucn <- read.csv('iucn_habitat_type.csv') %>%
+hiucn <- read.csv('proc/iucn_habitat_type.csv') %>%
   as_tibble %>%
   select(binomial,lotic,lentic)
-hiucn$lentic_only <- 0
-hiucn$lentic_only[hiucn$lentic == 1 & (hiucn$lotic == 0 | is.na(hiucn$lotic))] <- 1
+# hiucn$lentic_only <- 0
+# hiucn$lentic_only[hiucn$lentic == 1 & (hiucn$lotic == 0 | is.na(hiucn$lotic))] <- 1
 
 hfishbase <- ecology(df$binomial) %>%
   select(binomial = Species, lotic = Stream, lentic = Lakes) %>%
@@ -44,7 +44,7 @@ tab <- bind_rows(
   ,
   # and remaining species basedon fishbase
   data.frame(
-    binomial = df$binomial[!df$binomial %in% tab$binomial]
+    binomial = df$binomial[!df$binomial %in% hiucn$binomial]
   ) %>% as_tibble() %>%
     left_join(hfishbase)
 ) %>%
@@ -56,7 +56,11 @@ tab$lentic_only[tab$lentic == 1 & (tab$lotic == 0 | is.na(tab$lotic))] <- 1
 
 
 # CLIMATE ZONES ------------------------------------------------------------------------------------------------------
+library(raster)
+# read KG poly
+kg <- raster('data/Koeppen-Geiger-Classification-Reclassfied_5min_moderesampling.tif')
 
+extract(kg,df[1:5,]) %>% 
 # extract by polygon
 
 

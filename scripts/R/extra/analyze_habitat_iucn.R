@@ -58,10 +58,14 @@ for(i in 1:nrow(dat)){
   
 }
 
-write.csv(dat,'iucn_habitat_type.csv',row.names = F)
+# remove species without info on lentic-lotic habitat
+dat[apply(dat[,c('lotic','lentic')],1,sum) == 0,] <- NA
+dat <- dat[!is.na(dat[,1]),]
+
+write.csv(dat,'proc/iucn_habitat_type.csv',row.names = F)
 
 # %
-sum(dat$lotic)/nrow(dat)*100 # 78.6%
-sum(dat$lentic)/nrow(dat)*100 # 44.3%
-sum(dat$seasonal)/nrow(dat)*100 # 22.2%
-sum(dat$lotic*dat$lentic)/nrow(dat)*100 #30.3%
+sum(dat$lotic)/nrow(dat)*100
+sum(dat$lentic)/nrow(dat)*100
+sum(dat$seasonal)/nrow(dat)*100
+sum(dat$lotic*dat$lentic)/nrow(dat)*100
