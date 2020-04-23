@@ -9,82 +9,91 @@ ranges <- read_sf('proc/species_ranges_merged.gpkg') %>%
 # # # # load species habitat type <<<<<<< need to check why we are losing almost 100 species when merging
 hab <- left_join(ranges,read.csv('proc/species_traits.csv'))
 
-for(g in seq_along(climate_models)){
-  
-  # override vars
-  vars <- c('Qmi','Qma','Qzf','Tma','Tmi')
-  thresholds <- c('2.5','100.0','97.5','97.5','2.5')
-  clmod = climate_models[g]
-  
-  dir_niche <- paste0('proc/',clmod,'/niches/')
-  
-  
-  niche_list <- list()
-  for(j in seq_along(vars)){
-    niche <- readRDS(paste0(dir_niche,vars[j],'.rds'))
+# override vars
+vars <- c('Qmi','Qma','Qzf','Tma','Tmi')
+thresholds <- c('2.5','100.0','97.5','97.5','2.5')
+
+# make one table per GCM and then average across them (include only common ids)
+niche_list <- lapply(
+  seq_along(vars),
+  function(j){
     
-    niche <- niche[,c('ID',paste0(thresholds[j],'%'))]
-    colnames(niche)[2] <- paste0(vars[j],'_',colnames(niche)[2])
+    t <- lapply(
+      seq_along(climate_models),
+      function(x){
+        
+        d <- readRDS(paste0('proc/',climate_models[x],'/niches/',vars[j],'.rds')) %>% 
+          select(ID,paste0(thresholds[j],'%')) %>% as_tibble()
+        if(x == 1){return(d)}else{return(d[,2])}
+      }) %>% do.call('cbind',.)
     
-    niche_list[[j]] <- niche
-  }  
-  niche <- as.data.frame(do.call('cbind',
-                                 lapply(
-                                   niche_list,function(x) x[,2]
-                                 )
-  ))
-  colnames(niche) <- sapply(niche_list,function(x) colnames(x)[2])
-  niche <- cbind(niche_list[[1]][,1],niche)
-  colnames(niche)[1] <- 'id_no'
-  
-  #---------------------------------------------------------------------------------------------
-  # FILTERING
-  # save ids step by step
-  cat(paste0(rep('-',30)),'\n')
-  cat('FILTERING:\n')
-  
-  # STEP 0 ###
-  cat('STEP 0: initial species no. = ',nrow(niche),'\n')
-  
-  # STEP 1 ###
-  # filter out species outside the pcrglobwb domain and
-  # with less than a user defined number of grid-cells threshold
-  d <- readRDS(paste0(dir_niche,'Qmi.rds'))
-  step1 <- d[!is.na(d$mean) & d$no.grids >= min_no_grid_cells,1]
-  
-  cat('STEP 1: removing ',(nrow(niche) - length(step1)),' species represented by less than ',min_no_grid_cells,' grid-cell or falling out of the pcr-globwb domain\n')
-  niche <- niche[niche$id_no %in% step1,]
-  
-  
-  # STEP 2
-  ## merge habitat
-  niche <- left_join(niche %>% as_tibble,hab %>% mutate(id_no = as.character(id_no)))
-  
-  # STEP 3
-  ## filter for lotic sp only
-  niches_f <- niche[niche$lentic_only == 0,]
-  cat('removing ',(nrow(niche) - nrow(niches_f)),' species exclusively lentic\n')
-  
-  niches_f <- niches_f[niches_f$`Tmi_2.5%` > 273.15,] #<<<<<<<<<< WHAT? rather set it to this value where it is lower?
-  
-  write.csv(niches_f,paste0(dir_niche,'niches_filtered.csv'),row.names = F)
-  
-  cat(paste0(rep('-',30)),'\n\n')
-  
-  
+    res <- data.frame(id_no = d$ID)
+    res[,paste0(vars[j],'_',thresholds[j],'%')] <- apply(t[-1],1,function(x) mean(x,na.rm=T))
+    
+    return(res)
+  }
+)
+
+# make sure all ids correspond properly
+niche <- niche_list[[1]] %>% as_tibble()
+for(i in seq_along(vars)[-1]){
+  niche <- inner_join(niche,niche_list[[i]])
 }
+
+# join with habitat table
+niche <- left_join(niche,hab %>% mutate(id_no = as.character(id_no)))
+
+# join with number of grid cells
+niche <- left_join(niche,readRDS(paste0('proc/',climate_models[x],'/niches/','Qmi.rds')) %>% select(id_no = ID, no_cells = no.grids))
+
+# save table
+write.csv(niche,'proc/thresholds_average_all.csv',row.names = F)
+
+#---------------------------------------------------------------------------------------------
+# FILTERING
+
+nrow(niche)
+# [1] 12934
+
+# 1 - filter out exclusively lentic species
+
+niche <- niche %>%
+  filter(lentic_only == 0)
+  
+nrow(niche)  
+# [1] 11774
+
+# 2 - min no grid cells
+niche <- niche %>%
+  filter(no_cells >= min_no_grid_cells,
+         !is.na(`Qmi_2.5%`),!is.nan(`Qmi_2.5%`),!is.infinite(`Qmi_2.5%`))
+
+nrow(niche)
+# [1] 11425
+
+write.csv(niche,'proc/thresholds_average_filtered.csv',row.names = F)
+
+#---------------------------------------------------------------------------------------------
+# check correlations of thresholds
 
 libinv(c('ggplot2','purrr','tidyr','bestNormalize','foreach'))
 
-tab <- niches_f %>%
-  as_tibble() %>%
-  .[1:5]
+tab <- niche[,1:(length(vars)+1)]
 
 apply(tab %>% select(-id_no),2,function(x) sum(is.na(x)))
 apply(tab %>% select(-id_no),2,function(x) sum(x == 0))
 
+# seems that some Tmi value are set to 0, then set them to the minimum 273.15
+tab$`Tmi_2.5%`[tab$`Tmi_2.5%` < 275.15] <- 273.15
 
 # check distribution
+tab[-1] %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_histogram() +
+  theme_minimal()
+
 
 # need to transform variables to correctly estimate correlation metrics
 BN <- list()
@@ -113,11 +122,16 @@ tabN %>%
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_histogram() +
-  theme_bw()
+  theme_minimal()
 
 
 #' First bivariate correlations
 cm <- cor(tabN, use = "pairwise.complete.obs")
+# and visualize
+corrplot::corrplot(cm, method = 'number', type = 'lower', number.cex = 1)
+
+#' First bivariate correlations
+cm <- cor(tab[-1], use = "pairwise.complete.obs")
 # and visualize
 corrplot::corrplot(cm, method = 'number', type = 'lower', number.cex = 1)
 
