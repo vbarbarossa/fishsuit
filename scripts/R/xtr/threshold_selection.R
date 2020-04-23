@@ -77,7 +77,8 @@ for(g in seq_along(climate_models)){
 libinv(c('ggplot2','purrr','tidyr','bestNormalize','foreach'))
 
 tab <- niches_f %>%
-  as_tibble()
+  as_tibble() %>%
+  .[1:5]
 
 apply(tab %>% select(-id_no),2,function(x) sum(is.na(x)))
 apply(tab %>% select(-id_no),2,function(x) sum(x == 0))
