@@ -55,7 +55,7 @@ cat('modeling HABITAT SUITABILITY of each species..\n')
 nich <- niche %>% as.data.frame()
 colnames(nich) <- c('id_no',paste0(vars,'_th'))
 
-dir_out <- dir_(paste0('proc/',clmod,'/modelled_occurrence//'))
+dir_out <- dir_(paste0('proc/',clmod,'/modelled_occurrence/'))
 
 attr.tab <- foreach(i = seq_along(warming_targets),.combine = 'rbind') %do% {
   data.frame(
