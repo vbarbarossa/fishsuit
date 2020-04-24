@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH -N 1
+#SBATCH --array 1-5
 #SBATCH -t 8:00:00
 #SBATCH -p normal
 #SBATCH --output=diag/model_occurrence_%a.out

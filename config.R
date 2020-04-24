@@ -55,8 +55,8 @@ preprocess_iucn_data <- FALSE
 #----------------------------------------------------------------------------------
 #>> MODEL OCCURRENCE
 # variables
-vars <- c('Qmi','Qzf','Tma')
-thresholds <- c('2.5','97.5','97.5')
+vars <- c('Qmi','Qzf','Qma','Tma','Tmi')
+thresholds <- c('2.5','97.5','100.0','97.5','2.5')
 
 # minimum number of grid cells per species
 min_no_grid_cells <- 10
