@@ -41,8 +41,8 @@ no.weeks <- 52
 # and compute only metrics requested by the user
 
 # metrics
-varsQ <- c('Qmi','Qma','Qzf','Qav','Qve')
-varsT <- c('Tma','Tmi')
+varsQ <- c('Qmi','Qma','Qzf','Qav','Qve','Qcv')#'ff' once available
+varsT <- c('Tma','Tmi','Tcv')
 
 channel_section_area <- mask(raster(paste0(dir_data,'channel_section_area.tif')),raster(paste0(dir_data,'ldd.asc')) )
 channel_section_area[channel_section_area[] < 0.1] <- NA
@@ -115,14 +115,14 @@ calc_metrics <- function(x){
       calc(rQ, fun=function(x){ x[x == 0] <- 1; x[x != 1] <- NA; return(x)} )
       ,na.rm=T)
     
-    # res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
+    res[['Qcv']][[brickIndex]] <- calc(rQ,sd,na.rm = T)/calc(rQ,mean,na.rm=T)
     
     # calc metrics
     res[['Tma']][[brickIndex]] <- max(rT,na.rm = T)
     
     res[['Tmi']][[brickIndex]] <- min(rT,na.rm = T)
     
-    # res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
+    res[['Tcv']][[brickIndex]] <- calc(rT,sd,na.rm = T)/calc(rT,mean,na.rm=T)
     
     
   }
@@ -133,6 +133,7 @@ calc_metrics <- function(x){
   # round up to 3 decimals (then automatically, values < flow_filter_threshold are set to zero)
   res.av <- lapply(res.av,function(x) round(x,3))
   res.av[['Qzf']] <- round(res.av[['Qzf']],0) # for Qzf
+  res.av[['Tmi']] <- mask(res.av[['Tmi']],res.av[['Tmi']] > 273.2,maskvalue=0) # this is how mask works for binary filter layers
   
   # store results
   for(varname in c(varsQ,varsT)){
@@ -151,7 +152,24 @@ dir_merged <- dir_(paste0(dir_pcrglobwb_out,'merged/'))
 
 metrics <- c(varsQ,varsT)
 
-Qavbin <- raster(paste0(dir_merged,'Qavbin.tif'))
+# create binary layer based on long-term average annual flow
+v <- list()
+for(a in seq_along(areas)){
+  v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/Qav_',scen,'_',warmt,'C_',year,'.tif')) #<<<here should always be hist
+}
+
+names(v)[1:2] <- c('x', 'y')
+v$fun <- sum
+v$na.rm <- TRUE
+
+Qavbin <- paste0(dir_merged,'Qavbin_',scen,'_',warmt,'C_',year,'.tif')
+
+l <- do.call(mosaic, v) >= flow_filter_threshold
+NAvalue(l) <- 0 # set 0 to NA
+
+writeRaster(l,Qavbin, format="GTiff", overwrite=TRUE)
+
+Qavbin <- raster(Qavbin)
 NAvalue(Qavbin) <- 0 # set 0 to NA
 
 for(i in seq_along(metrics)){
@@ -172,10 +190,4 @@ for(i in seq_along(metrics)){
   )
   
 }
-
-
-
-
-
-
 
