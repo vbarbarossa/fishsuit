@@ -175,34 +175,45 @@ ids <- as.character(
 esh_calc <- function(sp){ #,sn
   # read the table
   t <- readRDS(paste0(dir_out,sp,'.rds'))
-  # <<<<<<<<<<<<< should also load the other tabl to et cell area, or select from template (but it's bigger)
   t <- t[complete.cases(t),] #remove rows that contain one or more NAs
   
   d <- data.frame(
     id_no = rep(sp,length(comboscen)),
-    no.cells = nrow(t),
+    no_cells = nrow(t),
+    area_total_km2 = sum(t$area),
     ESH_all = NA,
     ESH_Q = NA,
     ESH_T = NA,
     ESH_QnT = NA,
     comboscen = comboscen #sn is the looped scen
   )
+  for(v in vars) d[,paste0('ESH_',v)] <- NA
+  
   for(y in 1:nrow(d)){
     
     sn = d$comboscen[y]
     
-    # select scenario and year
-    th <- t[,paste0(vars,'_hist')] #historical
-    ts <- t[,paste0(vars,'_',sn)] #scenario
-    #filter out rows of ts that are already excluded in th due to the quantile threshold
-    ts <- ts[-which(unname(apply(th,1,all) == FALSE)),]
+    all_vars_hist <- paste0(vars,'_hist')
+    all_vars_scen <- paste0(vars,'_',sn)
     
-    d$ESH_all[y] <- sum(apply(ts,1,all) == FALSE)/nrow(ts)*100
-    d$ESH_Q[y] <- sum(apply(ts[,paste0(c('Qmi','Qzf'),'_',sn)],1,all) == FALSE)/nrow(ts)*100
-    d$ESH_T[y] <- sum(ts[,paste0(c('Tma'),'_',sn)] == FALSE)/nrow(ts)*100
-    d$ESH_QnT[y] <- sum(apply(cbind(apply(ts[,paste0(c('Qmi','Qzf'),'_',sn)],1,all),
-                                    ts[,paste0(c('Tma'),'_',sn)])
-                              ,1,any) == FALSE)/nrow(ts)*100
+    #filter out rows of ts that are already excluded in th due to the quantile threshold
+    t <- t[which(apply(t[,all_vars_hist],1,all)),]
+    
+    d$area_adjusted_km2 <- sum(t$area)
+    
+    # need to count the number of false and calculate the associated area per grid-cell
+    d$ESH_all[y] <- sum(t[which(!apply(t[,all_vars_scen],1,all)),'area'])/d$area_adjusted_km2[y]*100
+    d$ESH_Q[y] <- sum(t[which(!apply(t[,paste0(c('Qmi','Qzf','Qma'),'_',sn)],1,all)),'area'])/d$area_adjusted_km2[y]*100
+    
+    d$ESH_T[y] <- sum(t[which(!apply(t[,paste0(c('Tmi','Tma'),'_',sn)],1,all)),'area'])/d$area_adjusted_km2[y]*100
+    
+    # <<<<<<< NEED TO FIX THIS
+    d$ESH_QnT[y] <- sum(t[which(!apply(cbind(apply(t[,paste0(c('Qmi','Qzf','Qma'),'_',sn)],1,all),
+                                             apply(t[,paste0(c('Tmi','Tma'),'_',sn)],1,all))
+                                       ,1,any)),'area'])/d$area_adjusted_km2[y]*100
+    
+    for(v in vars) d[y,paste0('ESH_',v)] <- sum(t[which(!t[,paste0(v,'_',sn)]),'area'])/d$area_adjusted_km2[y]*100
+    
   }
   return(d)
 }
@@ -216,7 +227,7 @@ ESH_tab <-
 row.names(ESH_tab) <- NULL
 ESH_tab$comboscen <- as.factor(ESH_tab$comboscen)
 
-out <- paste0(dir_model,clmod,'/ESH_tab.csv')
+out <- paste0('proc/',clmod,'/ESH_tab.csv')
 write.csv(ESH_tab,out,row.names = F)
 
 cat('successfully written to ',out,'\n')
@@ -229,53 +240,53 @@ cat(paste0(rep('-',30)),'\n\n')
 cat(paste0(rep('-',30)),'\n')
 cat('Build SR_tab\n')
 
+
 for(sc in comboscen){
-  #<<<<<< need to remember how this was done and re-do it (maybe in the initial scripts 01-03 on milkun )
-  tab <- readRDS(paste0(dir_master,'ssp/tab_template.rds'))
   
-  for(v in c(vars,'Q_all','T_all','any','all','both_QT')) tab@data[,v] <- NA
+  tab <- readRDS('proc/ssp/points_template.rds') %>% as.data.frame() %>% dplyr::select(-geometry)
+  for(v in c(vars,'Q_all','T_all','any','all','both_QT','occ')) tab[,v] <- NA
   
   # <<<<<<<< need to parallelize this
   for(i in ids){
     
     t <- readRDS(paste0(dir_out,i,'.rds'))
-    t$X <- as.numeric(row.names(t)) #the way it was coded based on csv
+    t$X <- as.integer(row.names(t)) #the way it was coded based on csv
     th <- t[,paste0(vars,'_hist')] #historical
     
-    t <- t[-which(unname(apply(th,1,all) == FALSE)),]
+    t <- t[which(apply(th,1,all)),]
     
     #all
-    tab@data$occ[t$X] <- apply(cbind(tab@data$occ[t$X],rep(1,nrow(t))),1,function(x) sum(x,na.rm=T)) 
+    tab$occ[t$X] <- apply(cbind(tab$occ[t$X],rep(1,nrow(t))),1,function(x) sum(x,na.rm=T)) 
     
-    tab@data[t$X,'all'] <- apply(cbind(tab@data[t$X,'all'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',sc)],1,all)))
-                                 ,1,function(x) sum(x,na.rm=T))
-    
-    
-    tab@data[t$X,'any'] <- apply(cbind(tab@data[t$X,'any'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Tma'),'_',sc)],1,any)))
-                                 ,1,function(x) sum(x,na.rm=T))
+    tab[t$X,'all'] <- apply(cbind(tab[t$X,'all'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Qma','Tma','Tmi'),'_',sc)],1,all)))
+                            ,1,function(x) sum(x,na.rm=T))
     
     
-    tab@data[t$X,'Q_all'] <- apply(cbind(tab@data[t$X,'Q_all'],as.integer(apply(t[,paste0(c('Qmi','Qzf'),'_',sc)],1,all)))
-                                   ,1,function(x) sum(x,na.rm=T))
+    tab[t$X,'any'] <- apply(cbind(tab[t$X,'any'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Qma','Tma','Tmi'),'_',sc)],1,any)))
+                            ,1,function(x) sum(x,na.rm=T))
     
     
-    tab@data[t$X,'T_all'] <- apply(cbind(tab@data[t$X,'T_all'],as.integer(t[,paste0(c('Tma'),'_',sc)]))
-                                   ,1,function(x) sum(x,na.rm=T))
+    tab[t$X,'Q_all'] <- apply(cbind(tab[t$X,'Q_all'],as.integer(apply(t[,paste0(c('Qmi','Qzf','Qma'),'_',sc)],1,all)))
+                              ,1,function(x) sum(x,na.rm=T))
     
     
-    tab@data[t$X,'both_QT'] <- apply(cbind(tab@data[t$X,'both_QT'],as.integer(apply(cbind(
-      apply(t[,paste0(c('Qmi','Qzf'),'_',sc)],1,all),
-      t[,paste0(c('Tma'),'_',sc)]
+    tab[t$X,'T_all'] <- apply(cbind(tab[t$X,'T_all'],as.integer(apply(t[,paste0(c('Tmi','Tma'),'_',sc)],1,all)))
+                              ,1,function(x) sum(x,na.rm=T))
+    
+    
+    tab[t$X,'both_QT'] <- apply(cbind(tab[t$X,'both_QT'],as.integer(apply(cbind(
+      apply(t[,paste0(c('Qmi','Qzf','Qma'),'_',sc)],1,all),
+      apply(t[,paste0(c('Tmi','Tma'),'_',sc)],1,all)
     ),1,any)))
     ,1,function(x) sum(x,na.rm=T))
     
     
-    for(v in vars) tab@data[t$X,v] <- apply(cbind(tab@data[t$X,v],as.integer(t[,paste0(v,'_',sc)]))
-                                            ,1,function(x) sum(x,na.rm=T))
+    for(v in vars) tab[t$X,v] <- apply(cbind(tab[t$X,v],as.integer(t[,paste0(v,'_',sc)]))
+                                       ,1,function(x) sum(x,na.rm=T))
     
   }
   
-  saveRDS(tab,paste0(dir_model,clmod,'/SR_tab_',sc,'.rds'))
+  saveRDS(tab,paste0('proc/',clmod,'/SR_tab_',sc,'.rds'))
   
 }
 
