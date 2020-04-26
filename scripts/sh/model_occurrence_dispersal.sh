@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH --array 1-5
-#SBATCH -t 20:00:00
+#SBATCH -t 4-00:00:00
 #SBATCH -p normal
 #SBATCH --output=diag/model_occurrence_dispersal_%a.out
 #SBATCH --mail-type=END
