@@ -1,4 +1,50 @@
-library(sf); library(foreach); library(dplyr); library(ggplot2)
+library(sf); library(dplyr); library(ggplot2)
+
+# get total number of species 
+h <- readRDS('proc/ssp/points_template.rds')
+
+# sample Tedesco basins
+bas <- read_sf('data/Tedesco/Basin042017_3119.shp') %>% mutate(id = 1:nrow(.)) 
+bas_ras <-  fasterize::fasterize(sf = bas,raster = raster(res = 1/12), field = 'id')
+h$ws <- extract(bas_ras,h)
+h <- h %>% filter(!is.na(ws))
+
+# summarize species at Tedesco basin level the no species
+
+# load species poly
+sp <- read_sf('proc/species_ranges_merged.gpkg')
+
+l <- st_intersects(h,sp,sparse = T)
+
+
+t <- h %>%
+  as_tibble() %>%
+  select(-geometry) %>%
+  mutate(row_no = 1:nrow(.))
+
+tab <- lapply(unique(t$ws),
+       function(x){
+         tt <- t[t$ws == x,]
+         return(
+           data.frame(
+             ws = x,
+             no_sp = l[tt$row_no] %>% unlist %>% unique %>% length
+           )
+         )
+       }) %>%
+  do.call('rbind',.)
+
+# merge with tedesco table
+# use occurrences table
+ted_occ <- read.csv('data/Tedesco/Occurrence_Table.csv',sep = ';') %>%
+  as_tibble() %>%
+  group_by('X1.Basin.Name') %>%
+  summarise(no_sp_ted = length(unique(X5.Fishbase.Species.Code))) %>% 
+  left_join(bas %>% select())
+
+
+
+
 
 # hydrobasins level 8 within the Tedesco defined basins
 hb8_ted <- readRDS('data/hb8_tedesco.rds')

@@ -1,10 +1,13 @@
 #For guidance, Nature's standard figure sizes are 89 mm wide (single column) and 183 mm wide (double column). 
 #The full depth of a Nature page is 247 mm. Figures can also be a column-and-a-half where necessary (120–136 mm).
 
-source('R/4targets/MASTER.R');
+source('config.R'); # always load as functions are loaded within this script
 
-library(raster); library(foreach); library(sf); library(dplyr); library(matrixStats)
+library(raster); library(foreach); library(sf); library(dplyr); library(matrixStats); library(ggplot2)
 #> FUNCTIONS AND BASE LAYERS -------------------------------------------------------------------------------------
+
+# template points
+temp <- readRDS('proc/ssp/points_template.rds')
 
 # attribute table with year/warming target/scenario/climate model combos
 attr.tab <- foreach(i = seq_along(warming_targets),.combine = 'rbind') %do% {
@@ -18,26 +21,27 @@ attr.tab <- attr.tab[!is.na(attr.tab$year),]
 row.names(attr.tab) <- NULL
 
 # function that takes in input the warming target and variable and gives the rasterized relative losses per grid cell
-rasterize_rel_losses <- function(wtg,var = 'all',dir_root = 'fishsuit_completeRun_warming_4targets',dispersal=FALSE){
+rasterize_rel_losses <- function(wtg,var = 'all',dir_root = 'proc/',dispersal=FALSE){
   
+  template <- temp %>% dplyr::select(row_no,geometry)
   atab <- attr.tab[attr.tab$warmt == wtg,]
   
   tab <- foreach(x = 1:nrow(atab),.combine='cbind') %do%{
     
     if(!dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_',
                                        atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
-    if(dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_',
-                                      atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'_dispersal3.rds'))
+    if(dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_dispersal_',
+                                      atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
     
-    t@data$val <- (t@data$occ - t@data[,var])/t@data$occ
+    t$val <- (t$occ - t[,var])/t$occ
     
     return(t[,'val'])
   }
-  tab@data <- data.frame(val = rowMedians(as.matrix(tab@data)))
-  tab <- tab[!is.na(tab@data$val),]
+  template$val <- rowMedians(as.matrix(tab))
+  template <- template[!is.na(template$val),]
   
   return(
-    raster(as(tab[,'val'], "SpatialPixelsDataFrame"))
+    raster(as(as_Spatial(template[,'val']), "SpatialPixelsDataFrame"))
   )
   
 }
@@ -85,7 +89,7 @@ p <- ggplot() +
   geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
   geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
   geom_sf(data = world, fill = "grey90", lwd = NA) +
-  geom_tile(data = df, aes(x=x, y=y, fill=value), alpha=0.8) +
+  geom_raster(data = df, aes(x=x, y=y, fill=value), alpha=0.8) +
   scale_fill_viridis_c(breaks = seq(0,1,0.1),
                        labels = seq(0,1,0.1),
                        limits = c(0,1),
@@ -105,16 +109,16 @@ p <- ggplot() +
         legend.title = element_blank()
   )
 # p
-ggsave(paste0(dir_mod,'figs/maps_RC.jpg'),p,
+ggsave(paste0('figs/maps_RC.jpg'),p,
        width = 183,height = 200,dpi = 600,units = 'mm')
-# ggsave(paste0(dir_mod,'figs/maps_RC.pdf'),p,
+# ggsave(paste0('figs/maps_RC.pdf'),p,
 #        width = 183,height = 200,units = 'mm')
 
 # save source files for figshare
 for(i in seq_along(warming_targets)){
   
-  writeRaster(lst_ras[[i]],paste0(dir_mod,'figshare/local_cumulative_range_loss_no_dispersal_',warming_targets[i],'.tif'),format = 'GTiff',overwrite = T)
-  writeRaster(lst_ras_dsp[[i]],paste0(dir_mod,'figshare/local_cumulative_range_loss_max_dispersal_',warming_targets[i],'.tif'),format = 'GTiff',overwrite = T)
+  writeRaster(lst_ras[[i]],paste0('figshare/local_cumulative_range_loss_no_dispersal_',warming_targets[i],'.tif'),format = 'GTiff',overwrite = T)
+  writeRaster(lst_ras_dsp[[i]],paste0('figshare/local_cumulative_range_loss_max_dispersal_',warming_targets[i],'.tif'),format = 'GTiff',overwrite = T)
   
 }
 
@@ -146,8 +150,8 @@ for(w in seq_along(warming_targets)){
         dplyr::select(x,y,value = val,varname,scenario)
     }
   ) %>%
-    mutate(varname = forcats::fct_recode(varname, 'Low flow' = 'Q_all', 'Water temperature' = 'T_all','Both' = 'both_QT')) %>%
-    mutate(varname = factor(varname, levels = c('Water temperature', 'Low flow', 'Both')),
+    mutate(varname = forcats::fct_recode(varname, 'Streamflow' = 'Q_all', 'Water temperature' = 'T_all','Both' = 'both_QT')) %>%
+    mutate(varname = factor(varname, levels = c('Water temperature', 'Streamflow', 'Both')),
            scenario = factor(scenario, levels = c('No dispersal','Maximal dispersal')))
   
   # and draw
@@ -155,7 +159,7 @@ for(w in seq_along(warming_targets)){
     geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
     geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
     geom_sf(data = world, fill = "grey90", lwd = NA) +
-    geom_tile(data = df, aes(x=x, y=y, fill=value), alpha=0.8) +
+    geom_raster(data = df, aes(x=x, y=y, fill=value), alpha=0.8) +
     scale_fill_viridis_c(breaks = seq(0,1,0.1),
                          labels = seq(0,1,0.1),
                          limits = c(0,1),
@@ -175,16 +179,16 @@ for(w in seq_along(warming_targets)){
           legend.title = element_blank()
     )
   # p
-  ggsave(paste0(dir_mod,'figs/maps_RC_QTcontribution_',warming_targets[w],'.jpg'),p,
+  ggsave(paste0('figs/maps_RC_QTcontribution_',warming_targets[w],'.jpg'),p,
          width = 183,height = 170,dpi = 600,units = 'mm')
-  # ggsave(paste0(dir_mod,'figs/maps_RC.pdf'),p,
+  # ggsave(paste0('figs/maps_RC.pdf'),p,
   #        width = 183,height = 200,units = 'mm')
   
   # save source files for figshare
   for(i in seq_along(varnames)){
     
-    writeRaster(lst_ras[[i]],paste0(dir_mod,'figshare/local_cumulative_range_loss_no_dispersal_',warming_targets[w],'_',varnames[i],'.tif'),format = 'GTiff',overwrite = T)
-    writeRaster(lst_ras_dsp[[i]],paste0(dir_mod,'figshare/local_cumulative_range_loss_max_dispersal_',warming_targets[w],'_',varnames[i],'.tif'),format = 'GTiff',overwrite = T)
+    writeRaster(lst_ras[[i]],paste0('figshare/local_cumulative_range_loss_no_dispersal_',warming_targets[w],'_',varnames[i],'.tif'),format = 'GTiff',overwrite = T)
+    writeRaster(lst_ras_dsp[[i]],paste0('figshare/local_cumulative_range_loss_max_dispersal_',warming_targets[w],'_',varnames[i],'.tif'),format = 'GTiff',overwrite = T)
     
   }
   
@@ -195,21 +199,21 @@ for(w in seq_along(warming_targets)){
 #> INITIAL RICHNESS -----------------------------------------------------------------------------------------------------
 
 lst_ras <- foreach(source = c('hadgem/SR_tab_rcp8p5_3.2C_2058.rds',
-                              'hadgem/SR_tab_rcp8p5_3.2C_2058_lotic.rds',
-                              'hadgem/SR_tab_rcp8p5_3.2C_2058_lentic.rds')
+                              'hadgem/SR_tab_dispersal_rcp8p5_3.2C_2058.rds')
 ) %do%{
   
-  ttemp <- readRDS(paste0(dir_mod,source)) %>%
-    .[,'occ'] %>%
-    .[!is.na(.@data$occ),]
+  ttemp <- left_join(temp,readRDS(paste0('proc/',source)),by = 'row_no') %>% 
+    dplyr::select(occ) %>% 
+    filter(!is.na(occ)) 
+    
   return(
-    raster(as(ttemp[,'occ'], "SpatialPixelsDataFrame"))
+    raster(as(as_Spatial(ttemp), "SpatialPixelsDataFrame"))
   )
   
 }
 
 # convert to ggplot format
-deg <- c('All','Lotic','Lentic')
+deg <- c('No Dispersal','Maximal dispersal')
 df <- foreach(i = seq_along(deg),.combine='rbind') %do% {
   as(lst_ras[[i]] %>% projectRaster(.,crs=crs_custom) %>% mask(.,bb), "SpatialPixelsDataFrame") %>%
     as.data.frame(.) %>%
@@ -218,6 +222,7 @@ df <- foreach(i = seq_along(deg),.combine='rbind') %do% {
 }
 
 df$habitat <- factor(df$habitat, levels = deg)
+
 
 for(i in deg){
   
@@ -228,9 +233,9 @@ for(i in deg){
     geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
     geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
     geom_sf(data = world, fill = "grey90", lwd = NA) +
-    geom_tile(data = tt[tt$habitat == i,], aes(x=x, y=y, fill=value)) +
+    geom_raster(data = tt[tt$habitat == i,], aes(x=x, y=y, fill=value)) +
     scale_fill_viridis_c(limits = range(tt$value),
-                       na.value = "transparent",direction = -1) +
+                         na.value = "transparent",direction = -1) +
     facet_grid(habitat~.) +
     theme_minimal() +
     theme(text = element_text(size = 12),
@@ -246,41 +251,40 @@ for(i in deg){
           legend.title = element_blank()
     )
   
-  ggsave(paste0(dir_mod,'figs/maps_SR_',i,'.jpg'),p,
+  ggsave(paste0('figs/maps_SR_',i,'.jpg'),p,
          width = 200,height = 100,dpi = 600,units = 'mm')
- 
+  
 }
 for(i in seq_along(deg)){
   
-  writeRaster(lst_ras[[i]],paste0(dir_mod,'figshare/initial_species_richnees_',deg[i],'.tif'),format = 'GTiff',overwrite = T)
+  writeRaster(lst_ras[[i]],paste0('figshare/initial_species_richnees_',deg[i],'.tif'),format = 'GTiff',overwrite = T)
   
 }
 
-# facetting does not work, I get all blank plots..
-# library(ggplot2)
-# # and draw
-# p <- ggplot() +
-#   geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
-#   geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
-#   geom_sf(data = world, fill = "grey90", lwd = NA) +
-#   geom_tile(data = df, aes(x=x, y=y, fill=value)) +
-#   scale_fill_viridis_c(na.value = "transparent") +
-#   facet_grid(habitat~.) +
-#   theme_minimal() +
-#   theme(text = element_text(size = 12),
-#         panel.grid.major = element_line(color=NA),
-#         axis.text = element_blank(),
-#         axis.title = element_blank(),
-#         legend.position = 'bottom',
-#         legend.key.width = unit(6,'line'),
-#         strip.background = element_rect('white'),
-#         strip.background.x = element_blank(),
-#         strip.background.y = element_blank(),
-#         strip.text = element_text(angle = 0, vjust = -1, size = 12),
-#         legend.title = element_blank()
-#   )
-# p
-# 
-# ggsave(paste0(dir_mod,'figs/maps_SR.jpg'),p,
-#        width = 200,height = 300,dpi = 600,units = 'mm')
+df$value <- df$value %>% round(.,0) %>% log10()
 
+p <- ggplot() +
+  geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = world, fill = "grey90", lwd = NA) +
+  geom_raster(data = df, aes(x=x, y=y, fill=value)) +
+  scale_fill_viridis_c(limits = range(df$value),
+                       na.value = "transparent",direction = -1) +
+  facet_grid(habitat~.) +
+  theme_minimal() +
+  theme(text = element_text(size = 12),
+        panel.grid.major = element_line(color=NA),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        legend.position = 'bottom',
+        legend.key.width = unit(6,'line'),
+        strip.background = element_rect('white'),
+        strip.background.x = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text = element_text(angle = 0, vjust = -1, size = 12),
+        legend.title = element_blank()
+  )
+
+
+ggsave(paste0('figs/maps_SR.jpg'),p,
+       width = 200,height = 200,dpi = 600,units = 'mm')

@@ -1,18 +1,19 @@
 #For guidance, Nature's standard figure sizes are 89 mm wide (single column) and 183 mm wide (double column). 
 #The full depth of a Nature page is 247 mm. Figures can also be a column-and-a-half where necessary (120–136 mm).
 
-source('R/4targets/MASTER.R');
+source('config.R'); # always load as functions are loaded within this script
 
-library(foreach); library(dplyr); library(ggplot2); library(RColorBrewer)
+
+library(foreach); library(dplyr); library(ggplot2); library(RColorBrewer); library(sf)
 
 #> FUNCTIONS TO BUILD DATATABLES -------------------------------------------------------------------------------------------
 
 build_tab <- function(dispersal = FALSE){
   suffix <- ''
-  if(dispersal) suffix <- '_dispersal3'
+  if(dispersal) suffix <- '_dispersal'
   return(
     foreach(clmod = climate_models,.combine='rbind') %do% {
-      read.csv(paste0('fishsuit_completeRun_warming_4targets/',clmod,'/ESH_tab',suffix,'.csv')) %>%
+      read.csv(paste0('proc/',clmod,'/ESH_tab',suffix,'.csv')) %>%
         reshape2::melt(.,measure.vars = c('ESH_all', 'ESH_Q', 'ESH_T', 'ESH_QnT')) %>%
         rename(ESH_type = variable, ESH = value) %>%
         mutate(ESH_type = forcats::fct_recode(ESH_type, Total='ESH_all', Q = 'ESH_Q', Tw = 'ESH_T', 'Q&Tw' = 'ESH_QnT'),
@@ -109,22 +110,24 @@ p <- ggplot(tab,aes(x=warmt,y=ESH_median)) + #
 
 p
 
-ggsave(paste0(dir_mod,'figs/violins_overall_RC.jpg'),p,
+ggsave(paste0('figs/violins_overall_RC.jpg'),p,
        width = 89,height = 60,dpi = 600,units = 'mm')
-ggsave(paste0(dir_mod,'figs/violins_overall_RC.pdf'),p,
+ggsave(paste0('figs/violins_overall_RC.pdf'),p,
        width = 89,height = 60,units = 'mm')
 
 # save the table for figshare
 tab_wide <- tab %>% reshape2::dcast(.,id_no ~ warmt + scenario,value.var = 'ESH_median') %>% as_tibble()
-iucn_simplified <- foreach(i = 1:2,.combine = 'rbind') %do% foreign::read.dbf(paste0('data/FW_FISH_PART_',i,'.dbf')) %>%
-  as_tibble() %>%
-  distinct(binomial,.keep_all = T)
+species_names <- read_sf('proc/species_ranges_merged.gpkg') %>%
+  as_tibble() %>% dplyr::select(-geom)
 
-tab_wide <- right_join(iucn_simplified %>% select(id_no,binomial),tab_wide) %>%
+tab_wide <- right_join(species_names,tab_wide) %>%
   select(-id_no)
 
+# make sure directory exists
+dir_('figshare')
+
 write.csv(tab_wide,
-          paste0(dir_mod,'figshare/RC_by_species.csv'),row.names = F)
+          paste0('figshare/RC_by_species.csv'),row.names = F)
 
 
 # BOXPLOTS BY RCP AND GCM ------------------------------------------------------------------------------
@@ -172,7 +175,7 @@ p <- ggplot(d,aes(x=warmt,y=ESH)) + #
   ) 
 p
 
-ggsave(paste0(dir_mod,'figs/boxplot_RCP_and_GCM.jpg'),p,width = 170, height = 170, units = 'mm', dpi = 600,scale = 1.3)
+ggsave(paste0('figs/boxplot_RCP_and_GCM.jpg'),p,width = 170, height = 170, units = 'mm', dpi = 600,scale = 1.3)
 
 
 

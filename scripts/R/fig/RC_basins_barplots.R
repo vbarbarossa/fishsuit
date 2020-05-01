@@ -1,23 +1,15 @@
-source('R/4targets/MASTER.R');
+source('config.R'); # always load as functions are loaded within this script
 
-library(raster); library(foreach); library(dplyr)
+library(raster); library(foreach); library(dplyr); library(sf)
 
 
 #> BASE DATA -------------------------------------------------------------------------------------
-h <- readRDS('data/tab_template.rds')
+h <- readRDS('proc/ssp/points_template.rds')
 
 # watersheds layer
-ws_lyr <- raster('E:/GLOBIO-Aqua/output_5min_arcgis/basins_5min.tif')
+ws_lyr <- raster('data/pcrglobwb_hydrography/basins_5min.tif')
 
-# flow acc layer
-fa_lyr <- raster('E:/GLOBIO-Aqua/output_5min_arcgis/flowAcc_5min.tif')
-
-#area layer
-area_lyr <- area(raster(res=1/12))
-
-h@data$ws <- extract(ws_lyr,h)
-h@data$fa <- extract(fa_lyr,h)
-h@data$area <- extract(area_lyr,h)
+h$ws <- extract(ws_lyr,h)
 #> ENSEMBLE SPECIES LOST -------------------------------------------------------------------------------------
 
 # attribute table with year/warming target/scenario/climate model combos
@@ -31,24 +23,22 @@ attr.tab <- foreach(i = seq_along(warming_targets),.combine = 'rbind') %do% {
 attr.tab <- attr.tab[!is.na(attr.tab$year),]
 row.names(attr.tab) <- NULL
 
-dir_root <- 'fishsuit_completeRun_warming_4targets'
-
 lst_tabs <- foreach(n = seq_along(warming_targets)) %do% {
   
   atab <- attr.tab[attr.tab$warmt == warming_targets[n],]
   
   t <- as.data.frame(foreach(x = 1:nrow(atab),.combine='cbind') %do% {
     
-    tab <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_',
+    tab <- readRDS(paste0('proc/',atab$clmod[x],'/SR_tab_',
                           atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
     
     if(x == 1){
       return(
-        cbind(tab@data$occ,(tab@data$occ - tab@data$all)/tab@data$occ)
+        cbind(tab$occ,(tab$occ - tab$all)/tab$occ)
       )
     }else{
       return(
-        (tab@data$occ - tab@data$all)/tab@data$occ
+        (tab$occ - tab$all)/tab$occ
       )
     }
   })
@@ -66,16 +56,16 @@ lst_tabs_dsp <- foreach(n = seq_along(warming_targets)) %do% {
   
   t <- as.data.frame(foreach(x = 1:nrow(atab),.combine='cbind') %do% {
     
-    tab <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_',
-                          atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'_dispersal3.rds'))
+    tab <- readRDS(paste0('proc/',atab$clmod[x],'/SR_tab_dispersal_',
+                          atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
     
     if(x == 1){
       return(
-        cbind(tab@data$occ,(tab@data$occ - tab@data$all)/tab@data$occ)
+        cbind(tab$occ,(tab$occ - tab$all)/tab$occ)
       )
     }else{
       return(
-        (tab@data$occ - tab@data$all)/tab@data$occ
+        (tab$occ - tab$all)/tab$occ
       )
     }
   })
@@ -92,13 +82,13 @@ lst_tabs_dsp <- foreach(n = seq_along(warming_targets)) %do% {
 # table of relative loss at different warming levels
 tab <- cbind(data.frame(occ=lst_tabs[[1]][,1]),
              do.call('cbind',lapply(lst_tabs,function(x) x[,(ncol(x)-1):ncol(x)])),
-             h@data[,-1])
+             h %>% as_tibble() %>% dplyr::select(-geometry))
 tab_dsp <- cbind(data.frame(occ=lst_tabs_dsp[[1]][,1]),
                  do.call('cbind',lapply(lst_tabs_dsp,function(x) x[,(ncol(x)-1):ncol(x)])),
-                 h@data[,-1])
+                 h %>% as_tibble() %>% dplyr::select(-geometry))
 
 
-by.ws <- split(h@data,f=h@data$ws)
+by.ws <- split(h,f=h$ws)
 # look up langerst watersheds
 ws_size <- do.call(
   'rbind',
@@ -108,13 +98,7 @@ ws_size <- do.call(
 # and order based on size
 ws_size <- ws_size[order(ws_size$area,decreasing = T),]
 
-# # need to give a name to the watersheds
-# rr <- ws_lyr
-# rr[!rr %in% ws_size$ws_id[1:30]] <- NA
-# plot(rr)
-
 # # sample based on tedesco basins
-library(sf)
 wsted <- readRDS('data/compare_SR_tedesco.rds')
 library(countrycode)
 wsted$continent <- countrycode(sourcevar = wsted$Country,origin = 'country.name',destination = 'continent')
