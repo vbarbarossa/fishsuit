@@ -1,14 +1,10 @@
-#' ---
-#' title: "Phylogenetic generalized least squares on species traits"
-#' author: "Valerio Barbarossa"
-#' date: "November 27, 2019"
-#' output: html_document
-#' ---
-#' 
-#' ## Data cleaning
-#' 
-#' Read the data (produced by stats_on_traits.R) and inspect
-valerioUtils::libinv('dplyr')
+source('config.R')
+
+valerioUtils::libinv(c(
+  'ape','stringr','geiger','dplyr','corrplot','ggplot2','foreach','nlme'
+))
+
+source('scripts/R/fun/variable_importance.R') #function provided by Mirza for variable importance
 
 df <- read.csv('figshare/RC_by_species.csv') %>%
   as_tibble()
@@ -23,6 +19,9 @@ df$habitat <- 'Lo'
 df$habitat[df$lotic == 1] <- 'Lo'
 df$habitat[df$lentic == 1] <- 'Le'
 df$habitat[df$marine == 1] <- 'Ma'
+
+# adjust importance
+levels(df$importance) <- c('Com.','Com.','Com.','NoInt.','NoInt.','Subs.')
 
 # make climate zone a factor
 df$climate_zone <- as.factor(df$climate_zone)
@@ -54,6 +53,8 @@ df$code[df$code %in% c('EX','EW')] <- 'DD' # there are supposedly still 4 extinc
 df$code[df$code %in% c('LRlc')] <- 'LC'
 df$code[df$code %in% c('LRnt')] <- 'NT'
 
+
+
 df <- df %>%
   select(-FoodTroph,-lotic,-lentic,-lentic_only,-marine,-id_no) %>%
   filter(!is.na(length)) %>%
@@ -72,61 +73,12 @@ df <- droplevels(df)
 
 apply(df,2,function(x) sum(is.na(x)))
 
-#' #' We want to estimate the rate of change for the range contractions.
-#' #' 
-#' #' Therefore for each species we fit a linear regression across the four points and **report its slope as the rate of change**.  
-#' #' Litterally we are fitting RC = i + s*T + e for each species,
-#' #' where RC is in %, i is the intercept, s is the slope, T is the warming target (1.5,2.0 ...) and e is the residual error
-#' 
-#' df$RC_rate <- apply(df[,paste0('RC',c('1.5','2.0','3.2','4.5'))],1,function(x) as.numeric(coef(lm(as.numeric(x) ~ c(1.5,2,3.2,4.5)))[2]))
-#' df$RC_rate_dsp <- apply(df[,paste0('RC',c('1.5','2.0','3.2','4.5'),'_dsp')],1,function(x) as.numeric(coef(lm(as.numeric(x) ~ c(1.5,2,3.2,4.5)))[2]))
-
-#' #' compare dispersal vs non dispersal rates
-#' library(ggplot2)
-#' ggplot(df) +
-#'   geom_point(aes(x = RC_rate,y = RC_rate_dsp)) +
-#'   geom_abline(slope=1,intercept=0,color = 'red')
-
-#'
-#' similar trend but a lot of variation, interesting!
-#' 
-#' ********************
-#' 
-#' ## Check variables
-#' 
-#' The **dataset** has `r nrow(df)` entries
-#' 
-#' Check distribution of continuos variables
-
-valerioUtils::libinv(c('ggplot2','purrr','tidyr'))
-df %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_histogram()
-
-#' area and length are very skewed -> log-transformation?
-## ---- echo=FALSE---------------------------------------------------------
-hist(log10(df$area))
-hist(log10(df$length))
+cat('Dataset has:',nrow(df), 'species after filtering out some NAs in the traits')
 
 #' Much better! Then log-transform them in the dataset
 df <- df %>%
   mutate(area = log10(area), length = log10(length))
 
-#' check again distribution of variables
-
-df %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_histogram()
-
-#' check correlation of covariates, with correlation matrix. 
-#'    
-#' Need to convert all categorical variables to binary first:
 ## ------------------------------------------------------------------------
 # corrmatrix
 cm <- cor(df %>%
@@ -136,9 +88,8 @@ cm <- cor(df %>%
 )
 
 #' ..and then compute the correlation matrix
-
-valerioUtils::libinv('corrplot')
-jpeg('figs/phyloreg_CORRPLOT.jpg',width = 300,height = 300,units='mm',res = 600)
+dir_('figs')
+jpeg('figs/phyloreg_CORRPLOT.jpg',width = 300,height = 300,units='mm',res = 600,type='cairo')
 corrplot(cm, method = 'number', type = 'lower',number.cex = 1)
 dev.off()
 
@@ -166,19 +117,6 @@ fish <- as.data.frame(df)
 
 #' Based on example suggested by Felix Leiva (RU):
 #' 
-#' Load required packages
-
-valerioUtils::libinv(c(
-  'car',
-  'ape', # Paradis et al 2004
-  'nlme', # regression modelling
-  'phytools', # Revell et al 2012
-  'geiger', #Harmon et al 2007
-  'caper',
-  'MASS',
-  'stringr'
-))
-
 #' Load phylogenetic tree for bony fish species
 
 fish.tre<-read.tree("data/betancurt-R et al 2017.tre")#reading phylogenetic tree (Phylogenetic classification of bony fishes)
@@ -214,26 +152,6 @@ exclude.sp<-as.data.frame(names.full2$data_not_tree)
 fish2<-fish[ !(fish$species2 %in% exclude.sp$`names.full2$data_not_tree`), ]
 #Now are all species in the tree contained in the dataframe and viceversa
 
-#' This is actually pretty nice, shows the phylogeny for the `r nrow(fish2)` species available
-
-plotTree(full.tree2,type="fan",fsize=0.2,lwd=1,ftype="i")
-
-#' I am stopping with Felix example here.
-#' 
-#' **Dataset** now consists of `r nrow(fish2)` entries based on species available from the phylogenetic tree, I might need to look into synonyms later on..
-#' 
-#' Let's first of all test a simple bivariate correlation based on our data  
-#' ..for RC3.2  
-#' (sorry about the labels of the continuous variables!)
-
-fish2 %>%
-  as_tibble() %>%
-  gather(-binomial, -species2, -starts_with('RC'), key = "var", value = "value") %>% 
-  ggplot(aes(x = value, y = RC3.2)) +
-  geom_point(alpha = 0.2) +
-  facet_wrap(~ var, scales = "free") +
-  theme_bw()
-
 #' then we fit the PGLM model. There are two main of parameters to keep into account here
 #' 
 #' 1. corPagel is a variation of the brownian motion used to represent the phylogenentic evolution
@@ -242,37 +160,10 @@ fish2 %>%
 #' + lambda = 1 (Brownian motion)
 #' 
 
-## ------------------------------------------------------------------------
-#' let the model self calibrate the lambda parameter
+cat('Dataset has:',nrow(fish2), 'species with phylogenetic info')
 
-#' fitc <- gls(RC3.2 ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
-#'             correlation=corPagel(value=1, phy=full.tree2,fixed = TRUE),
-#'             method = "ML",
-#'             data=fish2)
-#' 
-#' summary(fitc)
-#' Anova(fitc)
-#' 
-#' #' Lambda = `r round(as.numeric(fitc$modelStruct),2)`
-#' #' 
-#' #' let's check the residuals, although I am not sure we need to do it
-#' #' 
-#' 
-#' plot(fitc, resid(., type="n")~fitted(.), main="Normalized Residuals v Fitted Values",
-#'      abline=c(0,0))
-#' res <- resid(fitc, type="n")
-#' qqnorm(res)
-#' qqline(res)
-
-
-#' let's check the variable importance (special thanks to Mirza for providing the R fucntion that does it right away!)
-#' for each RC variable
-
-# L <- as.numeric(fitc$modelStruct)
-L <- 1
-
-source('scripts/R/fun/variable_importance.R') #function provided by Mirza
-library(foreach)
+# define settings for Pagel's covariance matrix
+CP <- corPagel(value=1, phy=full.tree2,fixed = FALSE)
 
 for(var in colnames(df)[grep('RC',colnames(df))]){
   
@@ -280,16 +171,17 @@ for(var in colnames(df)[grep('RC',colnames(df))]){
   dfsel$RC <- dfsel[,var]
   
   fit <- gls(RC ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
-             correlation=corPagel(value=L, phy=full.tree2,fixed = TRUE),
+             correlation=CP,
              method = "ML",
              data=dfsel)
   
   coefdf <- as.data.frame(summary(fit)$tTable) %>%
     mutate(variable = row.names(.)) %>%
     mutate(`p-value` = ifelse(`p-value` < 10**-3,'<0.001',round(`p-value`,3)),
-           Value = round(Value,3)) %>%
+           Value = round(Value,3),
+           tval = abs(`t-value`)) %>%
     as_tibble() %>%
-    dplyr::select(variable, coef = 'Value', pval = 'p-value')
+    dplyr::select(variable, coef = 'Value', tval, pval = 'p-value')
   
   vi <- variable_importance(dfsel[,c('area','length','habitat','climate_zone','code','importance','foodtrophcat')], fit, iterations_num = 100)
   
@@ -302,7 +194,7 @@ for(var in colnames(df)[grep('RC',colnames(df))]){
   
   #rename the columns with the variable
   colnames(vidf)[2:3] <- paste0(var,'_',colnames(vidf)[2:3])
-  colnames(coefdf)[2:3] <- paste0(var,'_',colnames(coefdf)[2:3])
+  colnames(coefdf)[2:4] <- paste0(var,'_',colnames(coefdf)[2:4])
   
   # record lambdas (useful when setting fixed = FALSE)
   lamb <- data.frame(a = as.numeric(fit$modelStruct))
@@ -349,8 +241,8 @@ coef_res$RC_coef_SD_dsp <- coef_res %>% dplyr::select(contains('dsp')) %>% dplyr
   apply(.,1,sd)
 
 dir_('figshare'); dir_('tabs')
-write.csv(tab_res,'figshare/phyloreg_var_importance_lambda1.csv',row.names = F)
-write.csv(coef_res,'tabs/phyloreg_coefficients_lambda1.csv',row.names = F)
+write.csv(tab_res,'figshare/phyloreg_var_importance.csv',row.names = F)
+write.csv(coef_res,'tabs/phyloreg_coefficients.csv',row.names = F)
 write.csv(lambdas,'tabs/phyloreg_lambdas.csv',row.names = F)
 
 #' and plot it
@@ -405,8 +297,8 @@ p <- ggplot(dp,aes(x=var, y=mean,fill=variable)) +
         axis.title = element_text(size = 10))
 p
 
-ggsave('figs/traits_barplots_lambda1.jpg',p,width = 89,height = 80,units='mm',scale = 1,dpi = 600)
-ggsave('figs/traits_barplots_lambda1.pdf',p,width = 89,height = 80,units='mm',scale = 1)
+ggsave('figs/traits_barplots.jpg',p,width = 89,height = 80,units='mm',scale = 1,dpi = 600)
+ggsave('figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
 
 
 
