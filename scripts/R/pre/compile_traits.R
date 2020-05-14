@@ -55,9 +55,9 @@ hab$lentic_only[hab$lentic == 1 & (hab$lotic == 0 | is.na(hab$lotic))] <- 1
 sum(hab$lentic_only) #1160
 
 # FISHBASE TRAITS ----------------------------------------------------------------------------------------------------
-# length, trophic, commercial importance
+# length, trophic, commercial importance, marine
 fb1 <- species(df$binomial) %>%
-  select(binomial = Species, length = Length, importance = Importance) %>%
+  select(binomial = Species, length = Length, importance = Importance, marine = Saltwater) %>%
   distinct(binomial,.keep_all = T)
 fb2 <- ecology(df$binomial) %>%
   select(binomial = Species, FoodTroph) %>%
@@ -69,6 +69,8 @@ fb2$foodtrophcat[fb2$FoodTroph > 0] <- 'Herbi.'
 fb2$foodtrophcat[fb2$FoodTroph > 2.19 & fb2$FoodTroph <= 2.79] <- 'Omni.'
 fb2$foodtrophcat[fb2$FoodTroph > 2.79] <- 'Carni.'
 fb2$FoodTroph[fb2$FoodTroph == 0] <- NA
+
+fb1$marine[fb1$marine == -1] <- 1
 
 fb <- inner_join(fb1,fb2)
 
@@ -82,6 +84,18 @@ apply(fb,2,function(x) sum(is.na(x)))
 # CLIMATE ZONES ------------------------------------------------------------------------------------------------------
 cz <- read.csv('proc/climate_zones.csv')
 
+# IUCN code ------------------------------------------------------------------------------------------------------
+#iucn data for threat status**************************************************
+token <- 'd361026f05b472e57b0ffe1fa5c9a768aaf3d8391abbb464293e9efe2bbbf733'
+library(rredlist)
+iucn_code <- foreach(ts = c("DD", "LC", "NT", "VU", "EN","CR", "EW", "EX", "LRlc", "LRnt", "LRcd"),.combine = 'rbind') %do%{
+  t <- rl_sp_category(ts,key = token)$result %>% 
+    as_tibble() %>%
+    mutate(code = ts) %>%
+    select(binomial = scientific_name,code)
+  return(t)
+} %>% arrange(binomial)
+
 # MERGE TABLES --------------------------------------------------------------------------------------
 
 tab <- df %>%
@@ -89,7 +103,8 @@ tab <- df %>%
   select(-geom) %>%
   left_join(hab) %>%
   left_join(fb) %>%
-  left_join(cz)
+  left_join(cz) %>%
+  left_join(iucn_code)
 
 write.csv(tab,'proc/species_traits.csv',row.names = F)
 

@@ -1,6 +1,6 @@
-source('R/4targets/MASTER.R');
+source('config.R');
 
-source_layers <- paste0(dir_mod,'figs/data/pcrglobwb_anomaly_ensemble_perc_change.rds')
+source_layers <- 'proc/pcrglobwb_anomaly_ensemble_perc_change.rds'
 
 if(file.exists(source_layers)){
   diff_ens <- readRDS(source_layers)
@@ -36,7 +36,7 @@ if(file.exists(source_layers)){
   vars <- c('Qmi','Qzf','Tma')
   
   hist <- lapply(
-    foreach(var = vars) %do% paste0(dir_mod,climate_models,'/pcrglobwb_processed/merged/',var,'_hist.tif'),
+    foreach(var = vars) %do% paste0('proc/',climate_models,'/pcrglobwb_processed/merged/',var,'_hist.tif'),
     ensemble_median
   )
   names(hist) <- vars
@@ -47,7 +47,7 @@ if(file.exists(source_layers)){
     
     fut <- lapply(
       foreach(var = vars) %do% {
-        foreach(r = 1:nrow(attrs),.combine = 'c') %do% paste0(dir_mod,attrs[r,'clmod'],
+        foreach(r = 1:nrow(attrs),.combine = 'c') %do% paste0('proc/',attrs[r,'clmod'],
                                                               '/pcrglobwb_processed/merged/',var,'_',
                                                               attrs[r,'scen'],'_',attrs[r,'warmt'],'C_',
                                                               attrs[r,'year'],'.tif')
@@ -64,7 +64,7 @@ if(file.exists(source_layers)){
   }
   
   names(diff_ens) <- warming_targets
-  saveRDS(diff_ens,paste0(dir_mod,'figs/data/pcrglobwb_anomaly_ensemble_perc_change.rds'))
+  saveRDS(diff_ens,source_layers)
   
 }
 

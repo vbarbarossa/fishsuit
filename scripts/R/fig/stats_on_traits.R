@@ -1,7 +1,7 @@
 source('R/4targets/MASTER.R')
 
 # Library
-library(fmsb); library(foreach); library(grid); library(RColorBrewer); library(dplyr); library(tidyr); library(rfishbase); library(dplyr)
+library(foreach); library(grid); library(dplyr); library(tidyr); library(rfishbase);
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 #> DATA

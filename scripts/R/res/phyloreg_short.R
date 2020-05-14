@@ -1,13 +1,11 @@
-#' ---
-#' title: "Phylogenetic generalized least squares on species traits"
-#' author: "Valerio Barbarossa"
-#' date: "November 27, 2019"
-#' output: html_document
-#' ---
-#' 
-#' ## Data cleaning
-#' 
-#' Read the data (produced by stats_on_traits.R) and inspect
+source('config.R')
+
+valerioUtils::libinv(c(
+  'ape','stringr','geiger','dplyr','corrplot','ggplot2','foreach','nlme'
+))
+
+source('scripts/R/fun/variable_importance.R') #function provided by Mirza for variable importance
+
 valerioUtils::libinv('dplyr')
 
 df <- read.csv('figshare/RC_by_species.csv') %>%
@@ -18,20 +16,21 @@ df <- df %>%
   left_join(read.csv('proc/species_traits.csv')) %>%
   as_tibble()
 
+# create one column for habitat
+df$habitat <- 'Lo'
+df$habitat[df$lotic == 1] <- 'Lo'
+df$habitat[df$lentic == 1] <- 'Le'
+df$habitat[df$marine == 1] <- 'Ma'
 
-#' add the IUCN code to the data
-#iucn data for threat status**************************************************
-token <- 'd361026f05b472e57b0ffe1fa5c9a768aaf3d8391abbb464293e9efe2bbbf733'
-library(rredlist)
-iucn_code <- foreach(ts = c("DD", "LC", "NT", "VU", "EN","CR", "EW", "EX", "LRlc", "LRnt", "LRcd"),.combine = 'rbind') %do%{
-  t <- rl_sp_category(ts,key = token)$result %>% 
-    as_tibble() %>%
-    mutate(code = ts) %>%
-    select(binomial = scientific_name,code)
-  return(t)
-} %>% arrange(binomial)
+# adjust importance
+levels(df$importance) <- c('Com.','Com.','Com.','NoInt.','NoInt.','Subs.')
 
-df <- df %>% left_join(iucn_code)
+# make climate zone a factor
+df$climate_zone <- as.factor(df$climate_zone)
+levels(df$climate_zone) <- LETTERS[1:5]
+
+# make habitat a factor
+df$habitat <- as.factor(df$habitat)
 
 #' 
 #' check NAs
@@ -50,87 +49,49 @@ apply(df,2,function(x) sum(is.na(x)))
 #' Remove NA entries for length and RC and assign data deficient "DD" to NAs of importance and foodtrophcat
 #' 
 ## ------------------------------------------------------------------------
+df$code[is.na(df$code)] <- 'DD'
+df$code[is.na(df$code)] <- 'DD' # 2,597 probably from new data that do not have a match in IUCN
+df$code[df$code %in% c('EX','EW')] <- 'DD' # there are supposedly still 4 extinct species
+df$code[df$code %in% c('LRlc')] <- 'LC'
+df$code[df$code %in% c('LRnt')] <- 'NT'
+
+
+
 df <- df %>%
-  select(-FoodTroph,-order,-family) %>%
-  filter(!is.na(RC1.5) & !is.na(length)) %>%
+  select(-FoodTroph,-lotic,-lentic,-lentic_only,-marine,-id_no) %>%
+  filter(!is.na(length)) %>%
   mutate(foodtrophcat = as.character(foodtrophcat),
          importance = as.character(importance))
 
 df$importance[is.na(df$importance)] <- 'DD'
 df$foodtrophcat[is.na(df$foodtrophcat)] <- 'DD'
 
+df$foodtrophcat <- as.factor(df$foodtrophcat)
+df$importance <- as.factor(df$importance)
+
+df <- droplevels(df)
+
 #' and check again
 
 apply(df,2,function(x) sum(is.na(x)))
 
-#' We want to estimate the rate of change for the range contractions.
-#' 
-#' Therefore for each species we fit a linear regression across the four points and **report its slope as the rate of change**.  
-#' Litterally we are fitting RC = i + s*T + e for each species,
-#' where RC is in %, i is the intercept, s is the slope, T is the warming target (1.5,2.0 ...) and e is the residual error
-
-df$RC_rate <- apply(df[,paste0('RC',c('1.5','2.0','3.2','4.5'))],1,function(x) as.numeric(coef(lm(as.numeric(x) ~ c(1.5,2,3.2,4.5)))[2]))
-df$RC_rate_dsp <- apply(df[,paste0('RC',c('1.5','2.0','3.2','4.5'),'_dsp')],1,function(x) as.numeric(coef(lm(as.numeric(x) ~ c(1.5,2,3.2,4.5)))[2]))
-
-#' compare dispersal vs non dispersal rates
-library(ggplot2)
-ggplot(df) +
-  geom_point(aes(x = RC_rate,y = RC_rate_dsp)) +
-  geom_abline(slope=1,intercept=0,color = 'red')
-
-#'
-#' similar trend but a lot of variation, interesting!
-#' 
-#' ********************
-#' 
-#' ## Check variables
-#' 
-#' The **dataset** has `r nrow(df)` entries
-#' 
-#' Check distribution of continuos variables
-
-valerioUtils::libinv(c('ggplot2','purrr','tidyr'))
-df %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_histogram()
-
-#' area and length are very skewed -> log-transformation?
-## ---- echo=FALSE---------------------------------------------------------
-hist(log10(df$area))
-hist(log10(df$length))
+cat('Dataset has:',nrow(df), 'species after filtering out some NAs in the traits')
 
 #' Much better! Then log-transform them in the dataset
-
 df <- df %>%
   mutate(area = log10(area), length = log10(length))
 
-#' check again distribution of variables
-
-df %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_histogram()
-
-#' check correlation of covariates, with correlation matrix. 
-#'    
-#' Need to convert all categorical variables to binary first:
 ## ------------------------------------------------------------------------
 # corrmatrix
 cm <- cor(df %>%
-            select(area,length, climate, habitat, code) %>% 
+            select(area,length, climate_zone, habitat, code, importance, foodtrophcat) %>% 
             fastDummies::dummy_cols(.) %>%
-            select(-climate, -habitat, -code)
+            select(-climate_zone, -habitat, -code, -importance, -foodtrophcat)
 )
 
 #' ..and then compute the correlation matrix
 
-valerioUtils::libinv('corrplot')
-jpeg('../../fishsuit_completeRun_warming_4targets/figs/traits_barplots_CORRPLOT.jpg',width = 200,height = 200,units='mm',res = 600)
+jpeg('figs/phyloreg_CORRPLOT.jpg',width = 300,height = 300,units='mm',res = 600)
 corrplot(cm, method = 'number', type = 'lower',number.cex = 1)
 dev.off()
 
@@ -158,22 +119,9 @@ fish <- as.data.frame(df)
 
 #' Based on example suggested by Felix Leiva (RU):
 #' 
-#' Load required packages
-
-valerioUtils::libinv(c(
-  'car',
-  'ape', # Paradis et al 2004
-  'nlme', # regression modelling
-  'phytools', # Revell et al 2012
-  'geiger', #Harmon et al 2007
-  'caper',
-  'MASS',
-  'stringr'
-))
-
 #' Load phylogenetic tree for bony fish species
 
-fish.tre<-read.tree("../../betancurt-R et al 2017.tre")#reading phylogenetic tree (Phylogenetic classification of bony fishes)
+fish.tre<-read.tree("data/betancurt-R et al 2017.tre")#reading phylogenetic tree (Phylogenetic classification of bony fishes)
 str(fish.tre)#Phylogenetic information for more than 11000 fish species!!!
 tips<-fish.tre$tip.label#species labels contained in the tree
 fish.tre$Nnode#Node numbers
@@ -206,36 +154,6 @@ exclude.sp<-as.data.frame(names.full2$data_not_tree)
 fish2<-fish[ !(fish$species2 %in% exclude.sp$`names.full2$data_not_tree`), ]
 #Now are all species in the tree contained in the dataframe and viceversa
 
-#' This is actually pretty nice, shows the phylogeny for the `r nrow(fish2)` species available
-
-plotTree(full.tree2,type="fan",fsize=0.2,lwd=1,ftype="i")
-
-#' I am stopping with Felix example here.
-#' 
-#' **Dataset** now consists of `r nrow(fish2)` entries based on species available from the phylogenetic tree, I might need to look into synonyms later on..
-#' 
-#' Let's first of all test a simple bivariate correlation based on our data  
-#' ..for RC3.2  
-#' (sorry about the labels of the continuous variables!)
-
-fish2 %>%
-  as_tibble() %>%
-  gather(-binomial, -species2, -starts_with('RC'), key = "var", value = "value") %>% 
-  ggplot(aes(x = value, y = RC3.2)) +
-  geom_point(alpha = 0.2) +
-  facet_wrap(~ var, scales = "free") +
-  theme_bw()
-
-#' ..and for RC_rate
-
-fish2 %>%
-  as_tibble() %>%
-  gather(-binomial, -species2, -starts_with('RC'), key = "var", value = "value") %>% 
-  ggplot(aes(x = value, y = RC_rate)) +
-  geom_point(alpha = 0.2) +
-  facet_wrap(~ var, scales = "free") +
-  theme_bw()
-
 #' then we fit the PGLM model. There are two main of parameters to keep into account here
 #' 
 #' 1. corPagel is a variation of the brownian motion used to represent the phylogenentic evolution
@@ -244,60 +162,30 @@ fish2 %>%
 #' + lambda = 1 (Brownian motion)
 #' 
 
-## ------------------------------------------------------------------------
-#' let the model self calibrate the lambda parameter
+cat('Dataset has:',nrow(fish2), 'species with phylogenetic info')
 
-fitc <- gls(RC3.2 ~ area + length + habitat + climate + code + importance + foodtrophcat,
-            correlation=corPagel(value=1, phy=full.tree2,fixed = FALSE),
-            method = "ML",
-            data=fish2)
-
-summary(fitc)
-Anova(fitc)
-
-#' Lambda = `r round(as.numeric(fitc$modelStruct),2)`
-#' 
-#' let's check the residuals, although I am not sure we need to do it
-#' 
-
-plot(fitc, resid(., type="n")~fitted(.), main="Normalized Residuals v Fitted Values",
-     abline=c(0,0))
-res <- resid(fitc, type="n")
-qqnorm(res)
-qqline(res)
-
-
-#' let's check the variable importance (special thanks to Mirza for providing the R fucntion that does it right away!)
-#' for each RC variable
-
-L <- as.numeric(fitc$modelStruct)
-
-source('variable_importance.R') #function provided by Mirza
-library(foreach)
-
-#' we decided to exclude rate of change because there are too few data points to effectively conclude something on that
-
-df <- df %>%
-  dplyr::select(-contains('rate'))
+# define settings for Pagel's covariance matrix
+CP <- corPagel(value=1, phy=full.tree2,fixed = FALSE)
 
 for(var in colnames(df)[grep('RC',colnames(df))]){
   
   dfsel <- fish2
   dfsel$RC <- dfsel[,var]
   
-  fit <- gls(RC ~ area + length + habitat + climate + code + importance + foodtrophcat,
-             correlation=corPagel(value=L, phy=full.tree2,fixed = TRUE),
+  fit <- gls(RC ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
+             correlation=CP,
              method = "ML",
              data=dfsel)
   
   coefdf <- as.data.frame(summary(fit)$tTable) %>%
     mutate(variable = row.names(.)) %>%
     mutate(`p-value` = ifelse(`p-value` < 10**-3,'<0.001',round(`p-value`,3)),
-           Value = round(Value,3)) %>%
+           Value = round(Value,3),
+           tval = abs(`t-value`)) %>%
     as_tibble() %>%
-    dplyr::select(variable, coef = 'Value', pval = 'p-value')
+    dplyr::select(variable, coef = 'Value', tval, pval = 'p-value')
   
-  vi <- variable_importance(dfsel[,c('area','length','habitat','climate','code','importance','foodtrophcat')], fit, iterations_num = 100)
+  vi <- variable_importance(dfsel[,c('area','length','habitat','climate_zone','code','importance','foodtrophcat')], fit, iterations_num = 100)
   
   vidf <- data.frame(
     var = row.names(vi),
@@ -308,21 +196,28 @@ for(var in colnames(df)[grep('RC',colnames(df))]){
   
   #rename the columns with the variable
   colnames(vidf)[2:3] <- paste0(var,'_',colnames(vidf)[2:3])
-  colnames(coefdf)[2:3] <- paste0(var,'_',colnames(coefdf)[2:3])
+  colnames(coefdf)[2:4] <- paste0(var,'_',colnames(coefdf)[2:4])
   
-  if(var == 'RC1.5'){
+  # record lambdas (useful when setting fixed = FALSE)
+  lamb <- data.frame(a = as.numeric(fit$modelStruct))
+  colnames(lamb) <- paste0(var,'_lambda')
+  
+  if(var == colnames(df)[grep('RC',colnames(df))][1]){
     tab_res <- vidf
     coef_res <- coefdf
+    lambdas <- lamb
     
   }else{
     tab_res = bind_cols(tab_res,vidf[,2:3])
     coef_res = bind_cols(coef_res,coefdf[,2:3])
+    lambdas = bind_cols(lambdas,lamb)
   } 
   
 }
 
 tab_res
 coef_res
+lambdas
 
 #' SDs of single response variables look negligible
 #' 
@@ -347,8 +242,10 @@ coef_res$RC_coef_MEAN_dsp <- coef_res %>% dplyr::select(contains('dsp')) %>% dpl
 coef_res$RC_coef_SD_dsp <- coef_res %>% dplyr::select(contains('dsp')) %>% dplyr::select(contains('coef')) %>%
   apply(.,1,sd)
 
-write.csv(tab_res,'../../fishsuit_completeRun_warming_4targets/figshare/phyloreg_var_importance.csv',row.names = F)
-write.csv(coef_res,'../../fishsuit_completeRun_warming_4targets/figshare/phyloreg_coefficients.csv',row.names = F)
+dir_('figshare'); dir_('tabs')
+write.csv(tab_res,'figshare/phyloreg_var_importance.csv',row.names = F)
+write.csv(coef_res,'tabs/phyloreg_coefficients.csv',row.names = F)
+write.csv(lambdas,'tabs/phyloreg_lambdas.csv',row.names = F)
 
 #' and plot it
 #' 
@@ -373,7 +270,7 @@ dp <- foreach(v = as.character(tab_res$var),.combine = 'rbind') %do% {
                                    'Range area' = 'area',
                                    'Body length' = 'length',
                                    'Habitat type' = 'habitat',
-                                   'Climate' = 'climate',
+                                   'Climate' = 'climate_zone',
                                    'IUCN code' = 'code',
                                    'Commercial imp.' = 'importance',
                                    'Trophic cat.' = 'foodtrophcat'))
@@ -402,8 +299,8 @@ p <- ggplot(dp,aes(x=var, y=mean,fill=variable)) +
         axis.title = element_text(size = 10))
 p
 
-ggsave('../../fishsuit_completeRun_warming_4targets/figs/traits_barplots.jpg',p,width = 89,height = 80,units='mm',scale = 1,dpi = 600)
-ggsave('../../fishsuit_completeRun_warming_4targets/figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
+ggsave('figs/traits_barplots.jpg',p,width = 89,height = 80,units='mm',scale = 1,dpi = 600)
+ggsave('figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
 
 
 

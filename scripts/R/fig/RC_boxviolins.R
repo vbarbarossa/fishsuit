@@ -40,7 +40,7 @@ compute_median <- function(tab){
         return(
           data.frame(
             id_no = sp,
-            ESH_median = median(t$ESH,na.rm=T), #<<<<<<<<<<<<<<<<<<<< NEED TO CHECK WHY MEDIAN HERE
+            ESH_mean = mean(t$ESH,na.rm=T),
             warmt = wt
           )
         )
@@ -61,7 +61,7 @@ tab <- rbind(
   mutate(scenario = factor(scenario))
 
 
-p <- ggplot(tab,aes(x=warmt,y=ESH_median)) + #
+p <- ggplot(tab,aes(x=warmt,y=ESH_mean)) + #
   geom_violin(aes(fill = scenario),lwd = .5,color='transparent') + #
   geom_boxplot(aes(color = scenario),fill='white',outlier.color = 'transparent',
                width = 0.08,lwd=0.5,coef=0,notch = 1,position = position_dodge(0.9)) +
@@ -69,13 +69,13 @@ p <- ggplot(tab,aes(x=warmt,y=ESH_median)) + #
   scale_fill_manual(values = viridis::viridis(10,option='C')[c(5,8)]) +
   scale_color_manual(values = viridis::viridis(10,option='C')[c(5,8)]) +
   
-  # stat_summary(fun.y=mean, geom="point",aes(fill = warmt), 
-  #              shape=23, size=2,show.legend = FALSE) +
+  stat_summary(fun.y=mean, geom="point",aes(fill = scenario), 
+               shape=23, size=2, position = position_dodge(width = 0.9),show.legend = FALSE) +
   
   scale_x_discrete(labels=c(expression('1.5'^o*C),expression('2.0'^o*C),expression('3.2'^o*C),expression('4.5'^o*C))) +
   scale_y_reverse(breaks = c(0,25,50,75,100),limits = c(100,0),labels=paste0(c(0,25,50,75,100),'%')) +
   xlab(label = ' ') +
-  ylab(label = 'Range losses') +
+  ylab(label = 'Percentage of range affected') +
   
   theme_bw() +
   coord_cartesian(expand=F) +
@@ -115,8 +115,54 @@ ggsave(paste0('figs/violins_overall_RC.jpg'),p,
 ggsave(paste0('figs/violins_overall_RC.pdf'),p,
        width = 89,height = 60,units = 'mm')
 
+
+# do one without maximal dispersal
+p <- ggplot(tab %>% filter(scenario == 'no dispersal'),aes(x=warmt,y=ESH_mean)) + #
+  geom_violin(lwd = .5,color = 'transparent',fill = 'Grey70',alpha = 0.8) + #
+  geom_boxplot(fill='white',outlier.color = 'transparent',
+               width = 0.08,lwd=0.5,coef=0) +
+  
+  stat_summary(fun.y=mean, geom="point",fill = 'red', 
+               shape=23, size=2, position = position_dodge(width = 0.9),show.legend = FALSE) +
+  
+  scale_x_discrete(labels=c(expression('1.5'^o*C),expression('2.0'^o*C),expression('3.2'^o*C),expression('4.5'^o*C))) +
+  scale_y_reverse(breaks = c(0,25,50,75,100),limits = c(100,0),labels=paste0(c(0,25,50,75,100),'%')) +
+  xlab(label = ' ') +
+  ylab(label = 'Percentage of range affected') +
+  
+  theme_bw() +
+  coord_cartesian(expand=F) +
+  theme(
+    legend.position="none",
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    panel.grid.major.y = element_line(linetype = 'dashed',color='black'),
+    axis.ticks.x = element_blank(),
+    text = element_text(size=10),
+    axis.text.x = element_text(color='black',vjust = 3),
+    axis.text.y = element_text(color='black',angle=90,hjust = 0.5, vjust=1),
+    axis.line.y = element_line(color='black'),
+    panel.background = element_rect(fill = "transparent") # bg of the panel
+    , plot.background = element_rect(fill = "transparent", color = NA) # bg of the plot
+    , panel.grid.major = element_blank() # get rid of major grid
+    , panel.grid.minor = element_blank() # get rid of minor grid
+    , strip.background = element_rect('white'),
+    strip.background.x = element_blank(),
+    strip.background.y = element_blank(),
+    strip.text = element_text(angle = 0, size = 16)
+    
+    
+  )
+
+p
+
+ggsave(paste0('figs/violins_overall_RC_nodisp.jpg'),p,
+       width = 89,height = 60,dpi = 600,units = 'mm')
+ggsave(paste0('figs/violins_overall_RC_nodisp.pdf'),p,
+       width = 89,height = 60,units = 'mm')
+
 # save the table for figshare
-tab_wide <- tab %>% reshape2::dcast(.,id_no ~ warmt + scenario,value.var = 'ESH_median') %>% as_tibble()
+tab_wide <- tab %>% reshape2::dcast(.,id_no ~ warmt + scenario,value.var = 'ESH_mean') %>% as_tibble()
 species_names <- read_sf('proc/species_ranges_merged.gpkg') %>%
   as_tibble() %>% dplyr::select(-geom)
 

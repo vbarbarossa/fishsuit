@@ -99,7 +99,7 @@ ws_size <- do.call(
 ws_size <- ws_size[order(ws_size$area,decreasing = T),]
 
 # # sample based on tedesco basins
-wsted <- readRDS('data/compare_SR_tedesco.rds')
+wsted <- readRDS('proc/compare_SR_tedesco.rds')
 library(countrycode)
 wsted$continent <- countrycode(sourcevar = wsted$Country,origin = 'country.name',destination = 'continent')
 
@@ -124,10 +124,10 @@ d1 <- foreach(i = ws_size$ws_id[1:number_of_largest_basins],.combine = 'rbind') 
   data.frame(ws_id = i,
              name = paste0(
                paste(do.call('c',strsplit(ws_size$BasinName[ws_size$ws_id == i],'\\.')),collapse = ' '),
-               ' (',ws_size$no_iucn[ws_size$ws_id == i],'/',ws_size$no_ted[ws_size$ws_id == i],')'
+               ' (',ws_size$sp_no[ws_size$ws_id == i],')'
              ),
-             cover_ratio = ws_size$no_iucn[ws_size$ws_id == i]/ws_size$no_ted[ws_size$ws_id == i],
-             richness_orig = ws_size$no_ted[ws_size$ws_id == i],
+             cover_ratio = ws_size$sp_no[ws_size$ws_id == i]/ws_size$no_sp_ted[ws_size$ws_id == i],
+             richness_orig = ws_size$no_sp_ted[ws_size$ws_id == i],
              area = ws_size$area[ws_size$ws_id == i],
              area_ted = ws_size$Surf_area[ws_size$ws_id == i],
              country = ws_size$Country[ws_size$ws_id == i],
@@ -149,21 +149,23 @@ d1_tot <- d1
 
 # filter out watersheds with a coverage lower than 0.5
 # and select the 5 richest per continent
-d1 <- d1[d1$cover_ratio>=0.5 | d1$name == 'Amazon (404/2273)',] #include Amazon anyway
 d1 <- do.call('rbind',lapply(split(d1,d1$continent),function(x) x[x$richness_orig >= 50,][1:6,]))
 d1 <- d1[!is.na(d1$ws_id),]
 
 d2 <- foreach(i = ws_size$ws_id[1:number_of_largest_basins],.combine = 'rbind') %do% {
+  
+  
   t <- tab_dsp[tab_dsp$ws == i,]
   t <- t[!is.na(t$occ),]
+  
   
   data.frame(ws_id = i,
              name = paste0(
                paste(do.call('c',strsplit(ws_size$BasinName[ws_size$ws_id == i],'\\.')),collapse = ' '),
-               ' (',ws_size$no_iucn[ws_size$ws_id == i],'/',ws_size$no_ted[ws_size$ws_id == i],')'
+               ' (',ws_size$sp_no[ws_size$ws_id == i],')'
              ),
-             cover_ratio = ws_size$no_iucn[ws_size$ws_id == i]/ws_size$no_ted[ws_size$ws_id == i],
-             richness_orig = ws_size$no_ted[ws_size$ws_id == i],
+             cover_ratio = ws_size$sp_no[ws_size$ws_id == i]/ws_size$no_sp_ted[ws_size$ws_id == i],
+             richness_orig = ws_size$no_sp_ted[ws_size$ws_id == i],
              area = ws_size$area[ws_size$ws_id == i],
              area_ted = ws_size$Surf_area[ws_size$ws_id == i],
              country = ws_size$Country[ws_size$ws_id == i],
@@ -177,6 +179,7 @@ d2 <- foreach(i = ws_size$ws_id[1:number_of_largest_basins],.combine = 'rbind') 
              scenario = 'maximal dispersal'
   )
 }
+
 # order based on original richness according to tedesco et al.
 d2 <- d2[order(d2$richness_orig,decreasing = T),]
 
@@ -184,7 +187,6 @@ d2_tot <- d2
 
 # filter out watersheds with a coverage lower than 0.5
 # and select the 5 richest per continent
-d2 <- d2[d2$cover_ratio>=0.5 | d2$name == 'Amazon (404/2273)',] #include Amazon anyway
 d2 <- do.call('rbind',lapply(split(d2,d2$continent),function(x) x[x$richness_orig >= 50,][1:6,]))
 d2 <- d2[!is.na(d2$ws_id),]
 
@@ -193,7 +195,7 @@ ws_tab <- rbind(d1,d2)
 
 
 # save pre-processed watershed data for alternative approach
-write.csv(ws_tab_tot %>% dplyr::select(name,continent,av_1.5,av_2.0,av_3.2,av_4.5,scenario),paste0(dir_mod,'figshare/RC_basins.csv'),row.names = F)
+write.csv(ws_tab_tot %>% dplyr::select(name,continent,av_1.5,av_2.0,av_3.2,av_4.5,scenario),paste0('figshare/RC_basins.csv'),row.names = F)
 
 # barplots --------------------------------------------------------------------------------------------------------
 # only relative
@@ -232,18 +234,18 @@ p <- ggplot(df,aes(y = value, x = name, fill = variable)) +
         strip.placement = 'outside',
         strip.background = element_blank(),
         panel.spacing = unit(1.2, "lines"))
-
+p
 pg <- ggplotGrob(p)
 
 for(i in which(grepl("strip", pg$layout$name))){
   pg$grobs[[i]]$layout$clip <- "off"
 }
 
-ggsave(paste0(dir_mod,'figs/barplot_basins_selection.jpg'),pg,width = 183,height = 150,units='mm',dpi = 600)
-ggsave(paste0(dir_mod,'figs/barplot_basins_selection.pdf'),pg,width = 183,height = 150,units='mm')
+ggsave(paste0('figs/barplot_basins_selection.jpg'),pg,width = 183,height = 150,units='mm',dpi = 600)
+ggsave(paste0('figs/barplot_basins_selection.pdf'),pg,width = 183,height = 150,units='mm')
 
 # and the total ----
-df <- melt(ws_tab_tot %>% select(-c('cover_ratio','richness_orig')),measure.vars = c('av_1.5','av_2.0','av_3.2','av_4.5'))
+df <- melt(ws_tab_tot %>% dplyr::select(-c('cover_ratio','richness_orig')),measure.vars = c('av_1.5','av_2.0','av_3.2','av_4.5'))
 levels(df$variable) <- c('1.5C','2.0C','3.2C','4.5C')
 df <- droplevels(df)
 df <- df[order(df$value, decreasing = T),]
@@ -271,8 +273,8 @@ p <- ggplot(df,aes(y = value, x = name, fill = variable)) +
         strip.background = element_blank(),
         panel.spacing = unit(1.5, "lines"))
 # p
-ggsave(paste0(dir_mod,'figs/barplot_basins.jpg'),p,width = 200,height = 600,units='mm',dpi = 1000)
-ggsave(paste0(dir_mod,'figs/barplot_basins.pdf'),p,width = 200,height = 600,units='mm')
+ggsave(paste0('figs/barplot_basins.jpg'),p,width = 200,height = 600,units='mm',dpi = 1000)
+ggsave(paste0('figs/barplot_basins.pdf'),p,width = 200,height = 600,units='mm')
 
 
 
