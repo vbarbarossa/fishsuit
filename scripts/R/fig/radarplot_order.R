@@ -1,37 +1,39 @@
 
 valerioUtils::libinv('dplyr'); library(fmsb); library(foreach); library(grid); library(RColorBrewer)
-source('R/4targets/MASTER.R')
+source('config.R')
 
-df <- read.csv('stats_on_traits_output/df_for_stats_on_traits.csv') %>%
-  as_tibble() %>%
-  select(binomial,order_ = order,starts_with('RC'))
-df
+df <- read.csv('figshare/RC_by_species.csv') %>%
+  as_tibble()
+colnames(df) <- c('binomial',paste0('RC',rep(c('1.5','2.0','3.2','4.5'),each=2),c('_dsp','')))
 
-#' read also the dispersal data output
+taxa <- rfishbase::load_taxa() %>% select(binomial = Species,Order)
 
-df_dsp <- read.csv('stats_on_traits_output/df_for_stats_on_traits_dispersal.csv') %>%
-  as_tibble() %>%
-  select(binomial,order_ = order,starts_with('RC'))
-df_dsp
+df_raw <- df %>%
+  left_join(taxa)
 
-# abbreviate names for order_
+df <- df_raw %>% select(-ends_with('_dsp'))
+df_dsp <- df_raw %>% select(binomial,ends_with('_dsp'),Order)
+colnames(df_dsp) <- colnames(df)
 
+# abbreviate names with first 7 letters (cannot do less or Cyprini-Cyprino get confused)
 nchar_names <- 7
+# set orders with less than 20 species to Other
 min_sample_size <- 20
-levels(df$order_)[levels(df$order_) %in% c("CYPRINIFORMES","CYPRINODONTIFORMES")] <- paste0(as.character(sapply(levels(df$order_)[levels(df$order_) %in% c("CYPRINIFORMES","CYPRINODONTIFORMES")],function(x) strsplit(x, paste0("(?<=.{",nchar_names,"})"), perl = TRUE)[[1]][1])),'.')
-nchar_names <- 5
-levels(df$order_)[!levels(df$order_) %in% c("CYPRINI.","CYPRINO.")] <- paste0(as.character(sapply(levels(df$order_)[!levels(df$order_) %in% c("CYPRINI.","CYPRINO.")],function(x) strsplit(x, paste0("(?<=.{",nchar_names,"})"), perl = TRUE)[[1]][1])),'.')
-minor_orders <- names(table(df$order_)[which(table(df$order_) <= min_sample_size)])
-levels(df$order_)[levels(df$order_) %in% minor_orders] <- 'OTHER'
 
-nchar_names <- 7
-min_sample_size <- 20
-levels(df_dsp$order_)[levels(df_dsp$order_) %in% c("CYPRINIFORMES","CYPRINODONTIFORMES")] <- paste0(as.character(sapply(levels(df_dsp$order_)[levels(df_dsp$order_) %in% c("CYPRINIFORMES","CYPRINODONTIFORMES")],function(x) strsplit(x, paste0("(?<=.{",nchar_names,"})"), perl = TRUE)[[1]][1])),'.')
-nchar_names <- 5
-levels(df_dsp$order_)[!levels(df_dsp$order_) %in% c("CYPRINI.","CYPRINO.")] <- paste0(as.character(sapply(levels(df_dsp$order_)[!levels(df_dsp$order_) %in% c("CYPRINI.","CYPRINO.")],function(x) strsplit(x, paste0("(?<=.{",nchar_names,"})"), perl = TRUE)[[1]][1])),'.')
-minor_orders <- names(table(df_dsp$order_)[which(table(df_dsp$order_) <= min_sample_size)])
-levels(df_dsp$order_)[levels(df_dsp$order_) %in% minor_orders] <- 'OTHER'
+df$order_ <- lapply(df$Order,function(x) strsplit(x,'')[[1]][1:7] %>% paste0(collapse='') %>% paste0('.')) %>% do.call('c',.)
+df$order_[df$order_ %in% (table(df$order_)[table(df$order_) < min_sample_size] %>% names)] <- 'Other'
+df$order_ <- as.factor(df$order_)
 
+df_dsp$order_ <- lapply(df_dsp$Order,function(x) strsplit(x,'')[[1]][1:7] %>% paste0(collapse='') %>% paste0('.')) %>% do.call('c',.)
+df_dsp$order_[df_dsp$order_ %in% (table(df_dsp$order_)[table(df_dsp$order_) <= min_sample_size] %>% names)] <- 'Other'
+df_dsp$order_ <- as.factor(df_dsp$order_)
+
+# abbreviation table for SI
+write.csv(df %>% select(ORDER_NAME = Order, ABBREVIATION_USED = order_) %>% distinct(),
+           'tabs/order_names_abbreviation.csv',row.names = F)
+
+df <- df %>% select(-Order)
+df_dsp <- df_dsp %>% select(-Order)
 
 
 
@@ -167,9 +169,11 @@ legend <- tmp$grobs[[leg]]
 
 library(ggpubr)
 fig <- ggarrange(
-  ggarrange(p,p_dsp,ncol= 2, nrow = 1, labels = c('No dispersal','Maximal dispersal')),
+  ggarrange(p,p_dsp,ncol= 2, nrow = 1, labels = c('No dispersal','Maximal dispersal'),
+            font.label = list(size = 12, color = "black", face = "plain", family = NULL),
+            label.x = 0,label.y=1),
   legend,
   ncol = 1,nrow = 2,heights = c(1,0.05))
-ggsave(paste0(dir_mod,'figs/radarplot_order.jpg'),fig,width = 180,height = 90,units='mm',dpi = 600)
+ggsave(paste0('figs/radarplot_order.jpg'),fig,width = 180,height = 90,units='mm',dpi = 600)
 
 

@@ -27,6 +27,27 @@ lab_data <- foreach(sp = unique(as.character(tab$Species)),.combine = 'rbind') %
   )
 } %>% as_tibble()
 
+# add Erin's data. Unfortunately after merging only 45 more species are added
+tab <- read.csv('data/CTmax_data_EH.csv')[,-1] %>% rename(Species = species_name)
+length(unique(tab$Species)) # 327 as in the paper
+
+# try with a simple average over the values available for each species
+lab_data2 <- foreach(sp = unique(as.character(tab$Species)),.combine = 'rbind') %do% {
+  tt <- tab[tab$Species == sp,]
+  data.frame(
+    Species = sp,
+    Acclimation_lab = mean(tt$acclimation_temp_C,na.rm=T),
+    Acclimation.SD_lab = sd(tt$acclimation_temp_C,na.rm=T),
+    CTmax_lab = mean(tt$ctmax,na.rm=T),
+    CTmax_max = max(tt$ctmax,na.rm=T),
+    CTmax_min = min(tt$ctmax,na.rm=T),
+    CTmax_sd =  sd(tt$ctmax,na.rm=T),
+    CTmax.SD_lab = sd(tt$ctmax,na.rm=T)
+  )
+} %>% as_tibble() %>% filter(!Species %in% lab_data$Species)
+
+lab_data <- rbind(lab_data,lab_data2)
+
 #> RETRIEVE TMAX MODELLED DATA --------------------------------------------------------------------------------------
 
 climate_models <- c('gfdl','ipsl','hadgem','miroc','noresm') #,'noresm'
@@ -93,7 +114,7 @@ tab <- read.csv('proc/species_traits.csv') %>% as_tibble()
 
 df <- inner_join(data,tab,by = 'id_no')
 df$climate_zone <- as.factor(df$climate_zone)
-levels(df$climate_zone) <- c('Equatorial','Arid','Warm Temperate','Snow')
+levels(df$climate_zone) <- c('Equatorial','Arid','Warm Temperate','Snow','Polar')
 library(ggplot2)
 p <- ggplot(df,aes(x=CTmax_lab,y=Tmax_median)) +
   geom_abline(color = 'black',linetype='dashed') +
@@ -101,8 +122,8 @@ p <- ggplot(df,aes(x=CTmax_lab,y=Tmax_median)) +
   geom_point(aes(size = log(area.x,base = 10),color = climate_zone),alpha=0.5,shape = 16) +
   xlab(expression('Critical Thermal Maximum from lab data '*'['^o*C*']')) +
   ylab(expression('Upper threshold of maximum weekly water temperature '*'['^o*C*']')) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(name = 'Set1',n=9)[c(1,5,3,4)]) +
-  coord_cartesian(xlim = c(20,45),ylim = c(20,45),expand=T) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(name = 'Set1',n=9)[c(1,5,3,2,4)]) +
+  coord_cartesian(xlim = c(20,48),ylim = c(20,48),expand=T) +
   guides(size = guide_legend(title="Range\n[log10-km2]"),color = guide_legend(title="Climate",override.aes = list(size=5))) +
   theme_bw() +
   theme(
@@ -113,7 +134,7 @@ p <- ggplot(df,aes(x=CTmax_lab,y=Tmax_median)) +
   )
 p
 
-ggsave('figs/ctmax_vs_tmax.jpeg',p,
+ggsave(paste0('figs/ctmax_vs_tmax_n',length(df$binomial.x),'.jpeg'),p,
        width = 150,height = 120,units = 'mm',dpi = 600,scale = 1.5 )
 
 #----------------------------------------------------------------------

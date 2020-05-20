@@ -81,16 +81,33 @@ df <- df %>%
 
 ## ------------------------------------------------------------------------
 # corrmatrix
-cm <- cor(df %>%
+cm1 <- cor(df %>%
             select(area,length, climate_zone, habitat, code, importance, foodtrophcat) %>% 
             fastDummies::dummy_cols(.) %>%
             select(-climate_zone, -habitat, -code, -importance, -foodtrophcat)
 )
 
+cm2 <- cor(df %>% 
+            select('Range area' = area,'Body length' = length, 'Climate' = climate_zone, 
+                    'Habitat type' = habitat, 'IUCN code' = code, 'Commercial imp.' = importance, 
+                   'Trophic cat.' = foodtrophcat) %>% 
+            mutate_all(as.numeric), method = 'spearman'
+)
+
+# library(psych)
+# cm <- mixedCor(df %>% 
+#                  select(area,length, climate_zone, habitat, code, importance, foodtrophcat) %>% 
+#                  mutate_all(as.numeric), 
+#                method = 'pearson')
+
 #' ..and then compute the correlation matrix
 dir_('figs')
 jpeg('figs/phyloreg_CORRPLOT.jpg',width = 300,height = 300,units='mm',res = 600,type='cairo')
-corrplot(cm, method = 'number', type = 'lower',number.cex = 1)
+corrplot(cm1, method = 'number', type = 'lower',number.cex = 1)
+dev.off()
+
+jpeg('figs/phyloreg_CORRPLOT_discretized.jpg',width = 150,height = 150,units='mm',res = 600,type='cairo')
+corrplot(cm2, method = 'number', type = 'lower',number.cex = 1)
 dev.off()
 
 #' and with variance inflation factors (VIFs)
@@ -197,8 +214,9 @@ for(var in colnames(df)[grep('RC',colnames(df))]){
   colnames(coefdf)[2:4] <- paste0(var,'_',colnames(coefdf)[2:4])
   
   # record lambdas (useful when setting fixed = FALSE)
-  lamb <- data.frame(a = as.numeric(fit$modelStruct))
-  colnames(lamb) <- paste0(var,'_lambda')
+  lamb <- data.frame(a = c(as.numeric(fit$modelStruct),cor(dfsel$RC,as.numeric(fit$fitted))))
+  colnames(lamb) <- var
+  row.names(lamb) <- c('lambda','r')
   
   if(var == colnames(df)[grep('RC',colnames(df))][1]){
     tab_res <- vidf
@@ -207,7 +225,7 @@ for(var in colnames(df)[grep('RC',colnames(df))]){
     
   }else{
     tab_res = bind_cols(tab_res,vidf[,2:3])
-    coef_res = bind_cols(coef_res,coefdf[,2:3])
+    coef_res = bind_cols(coef_res,coefdf[,2:4])
     lambdas = bind_cols(lambdas,lamb)
   } 
   
@@ -244,6 +262,8 @@ dir_('figshare'); dir_('tabs')
 write.csv(tab_res,'figshare/phyloreg_var_importance.csv',row.names = F)
 write.csv(coef_res,'tabs/phyloreg_coefficients.csv',row.names = F)
 write.csv(lambdas,'tabs/phyloreg_lambdas.csv',row.names = F)
+write.csv(coef_res %>% select(-contains('dsp')),'tabs/phyloreg_coefficients_nodsp.csv',row.names = F)
+write.csv(coef_res %>% select(variable,contains('dsp')),'tabs/phyloreg_coefficients_dsp.csv',row.names = F)
 
 #' and plot it
 #' 
@@ -274,6 +294,12 @@ dp <- foreach(v = as.character(tab_res$var),.combine = 'rbind') %do% {
                                    'Trophic cat.' = 'foodtrophcat'))
 
 
+# insert lambda
+levels(dp$variable) <- c(
+  paste0('Max dispersal\nλ=',lambdas[1,] %>% select(contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-'),'; r=',lambdas[2,] %>% select(contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-')),
+  paste0('No dispersal\nλ=',lambdas[1,] %>% select(-contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-'),'; r=',lambdas[2,] %>% select(-contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-'))
+)
+
 p <- ggplot(dp,aes(x=var, y=mean,fill=variable)) + 
   geom_bar(position = "dodge", stat = "identity") +
   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.4,position = position_dodge(width=0.9)) +
@@ -292,14 +318,9 @@ p <- ggplot(dp,aes(x=var, y=mean,fill=variable)) +
         strip.text = element_blank(),
         strip.background = element_blank(),
         panel.spacing = unit(0.5, "lines"),
-        text = element_text(size = 12),
-        axis.text.y = element_text(size = 10),
-        axis.title = element_text(size = 10))
+        text = element_text(size = 9))
 p
 
 ggsave('figs/traits_barplots.jpg',p,width = 89,height = 80,units='mm',scale = 1,dpi = 600)
-ggsave('figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
-
-
-
+# ggsave('figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
 

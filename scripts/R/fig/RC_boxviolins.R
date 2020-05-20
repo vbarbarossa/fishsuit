@@ -53,9 +53,9 @@ compute_median <- function(tab){
 #> RC OVERALL VIOLIN PLOTS -----------------------------------------------------------------------------------------
 
 tab <- rbind(
-  build_tab() %>% select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% filter(ESH_type == 'Total') %>% 
+  build_tab() %>% dplyr::select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% filter(ESH_type == 'Total') %>% 
     droplevels() %>% compute_median() %>% mutate(scenario = 'no dispersal'),
-  build_tab(dispersal = TRUE) %>% select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% filter(ESH_type == 'Total') %>% 
+  build_tab(dispersal = TRUE) %>% dplyr::select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% filter(ESH_type == 'Total') %>% 
     droplevels() %>% compute_median() %>% mutate(scenario = 'maximal dispersal')
 ) %>%
   mutate(scenario = factor(scenario))
@@ -164,10 +164,10 @@ ggsave(paste0('figs/violins_overall_RC_nodisp.pdf'),p,
 # save the table for figshare
 tab_wide <- tab %>% reshape2::dcast(.,id_no ~ warmt + scenario,value.var = 'ESH_mean') %>% as_tibble()
 species_names <- read_sf('proc/species_ranges_merged.gpkg') %>%
-  as_tibble() %>% dplyr::select(-geom)
+  as_tibble() %>% dplyr::dplyr::select(-geom)
 
 tab_wide <- right_join(species_names,tab_wide) %>%
-  select(-id_no)
+  dplyr::select(-id_no)
 
 # make sure directory exists
 dir_('figshare')
@@ -179,8 +179,8 @@ write.csv(tab_wide,
 # BOXPLOTS BY RCP AND GCM ------------------------------------------------------------------------------
 
 tab <- rbind(
-  build_tab() %>% select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% mutate(scenario = 'no dispersal'),
-  build_tab(dispersal = TRUE) %>% select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% mutate(scenario = 'maximal dispersal')
+  build_tab() %>% dplyr::select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% mutate(scenario = 'no dispersal'),
+  build_tab(dispersal = TRUE) %>% dplyr::select(id_no,ESH_type,ESH,GCM,RCP,warmt,year) %>% mutate(scenario = 'maximal dispersal')
 ) %>%
   mutate(scenario = factor(scenario)) %>%
   droplevels()
@@ -204,7 +204,7 @@ p <- ggplot(d,aes(x=warmt,y=ESH)) + #
   # guides(fill = ' ') +
   scale_y_reverse() +
   xlab(label = ' ') +
-  ylab(label = 'Range losses [%]') +
+  ylab(label = 'Percentage of range affected [%]') +
   facet_grid(g ~ scenario) +
   theme_bw() +
   theme(

@@ -124,8 +124,4 @@ range2table <- function(
   # 
   
   
-  # need to figure a way to save it as multipoints, not trivial
-  # mp <- st_multipoint(cbind(rep(1,length(lst[[1]])),as.matrix(xytab[lst[[1]],])))
-  
-  
 }

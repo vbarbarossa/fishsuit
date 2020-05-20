@@ -33,7 +33,7 @@ if(file.exists(source_layers)){
     
   }
   
-  vars <- c('Qmi','Qzf','Tma')
+  vars <- c('Qmi','Qma','Qzf','Tma','Tmi')
   
   hist <- lapply(
     foreach(var = vars) %do% paste0('proc/',climate_models,'/pcrglobwb_processed/merged/',var,'_hist.tif'),
@@ -56,7 +56,7 @@ if(file.exists(source_layers)){
     )
     names(fut) <- vars
     
-    diff <- lapply(1:3,function(x) {(mask(fut[[x]],hist[[x]] >= 0) - mask(hist[[x]],hist[[x]] >= 0))/mask(hist[[x]],hist[[x]] >= 0)})
+    diff <- lapply(seq_along(vars),function(x) {(mask(fut[[x]],hist[[x]] >= 0) - mask(hist[[x]],hist[[x]] >= 0))/mask(hist[[x]],hist[[x]] >= 0)})
     names(diff) <- vars
     
     return(diff)
@@ -109,14 +109,31 @@ df <- bind_rows(
       mutate(warming = deg[i], var = 'Tma',varlong = 'max. weekly water temp.') %>%
       dplyr::select(x,y,value = layer,warming,var,varlong) %>%
       filter(!is.na(value))
+  } %>% as_tibble(),
+  foreach(i = seq_along(deg),.combine='rbind') %do% {
+    as(diff_ens[[warming_targets[i]]][['Tmi']] %>% projectRaster(.,crs=crs_custom) %>% mask(.,bb), "SpatialPixelsDataFrame") %>%
+      as.data.frame(.) %>%
+      mutate(warming = deg[i], var = 'Tmi',varlong = 'min. weekly water temp.') %>%
+      dplyr::select(x,y,value = layer,warming,var,varlong) %>%
+      filter(!is.na(value))
+  } %>% as_tibble(),
+  foreach(i = seq_along(deg),.combine='rbind') %do% {
+    as(diff_ens[[warming_targets[i]]][['Qma']] %>% projectRaster(.,crs=crs_custom) %>% mask(.,bb), "SpatialPixelsDataFrame") %>%
+      as.data.frame(.) %>%
+      mutate(warming = deg[i], var = 'Qma',varlong = 'max. weekly flow') %>%
+      dplyr::select(x,y,value = layer,warming,var,varlong) %>%
+      filter(!is.na(value))
   } %>% as_tibble()
 )
 
 df$warming <- factor(df$warming, levels = deg)
-df$var <- factor(df$var, levels = c('Qmi','Qzf','Tma'))
+df$var <- factor(df$var, levels = c('Qmi','Qzf','Tma','Tmi','Qma'))
 df$varlong <- factor(df$varlong, levels = c('min. weekly flow',
                                             'max. no. zero-flow weeks',
-                                            'max. weekly water temp.'))
+                                            'max. weekly water temp.',
+                                            'min. weekly water temp.',
+                                            'max. weekly flow'
+                                            ))
 
 # do one plot per variable to manage better the colorscale
 # water temperature has much smaller variations in percentage of change than flow
@@ -158,7 +175,7 @@ p <- ggplot() +
   )
 # p
 
-ggsave(paste0(dir_mod,'figs/maps_pcrglobwb_anomaly_Qzf.jpg'),p,
+ggsave(paste0('figs/maps_pcrglobwb_anomaly_Qzf.jpg'),p,
        width = 200,height = 130,dpi = 600,units = 'mm')
 
 # QMIN--------------------------------------------------------------------------

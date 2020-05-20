@@ -58,6 +58,20 @@ graticules <- rnaturalearth::ne_download(type = "graticules_30", category = "phy
 
 #> OVERALL MAPS -------------------------------------------------------------------------------------------------------
 # compile raster layers
+
+# if already compiled, use the shortcut:
+# lst_ras <- list()
+# lst_ras_dsp <- list()
+# for(i in seq_along(warming_targets)){
+#   
+#   lst_ras[[i]] <- raster(paste0('figshare/local_cumulative_range_loss_no_dispersal_',warming_targets[i],'.tif'))
+#   lst_ras_dsp[[i]] <- raster(paste0('figshare/local_cumulative_range_loss_max_dispersal_',warming_targets[i],'.tif'))
+#   
+# }
+# names(lst_ras) <- warming_targets
+# names(lst_ras_dsp) <- warming_targets
+
+
 lst_ras <- lapply(warming_targets,function(x) rasterize_rel_losses(wtg = x))
 names(lst_ras) <- warming_targets
 
@@ -71,13 +85,13 @@ df <- rbind(
     as(lst_ras[[i]] %>% projectRaster(.,crs=crs_custom) %>% mask(.,bb), "SpatialPixelsDataFrame") %>%
       as.data.frame(.) %>%
       mutate(warming = deg[i], scenario = 'No dispersal') %>%
-      dplyr::select(x,y,value = val,warming,scenario)
+      dplyr::select(x,y,value = colnames(.)[1],warming,scenario)
   },
   foreach(i = seq_along(deg),.combine='rbind') %do% {
     as(lst_ras_dsp[[i]] %>% projectRaster(.,crs=crs_custom) %>% mask(.,bb), "SpatialPixelsDataFrame") %>%
       as.data.frame(.) %>%
       mutate(warming = deg[i], scenario = 'Maximal dispersal') %>%
-      dplyr::select(x,y,value = val,warming,scenario)
+      dplyr::select(x,y,value = colnames(.)[1],warming,scenario)
   }
 )
 
@@ -96,7 +110,7 @@ p <- ggplot() +
                        option = 'C',na.value = "transparent") +
   facet_grid(warming~scenario) +
   theme_minimal() +
-  theme(text = element_text(size = 15),
+  theme(text = element_text(size = 13),
         panel.grid.major = element_line(color=NA),
         axis.text = element_blank(),
         axis.title = element_blank(),
@@ -105,7 +119,7 @@ p <- ggplot() +
         strip.background = element_rect('white'),
         strip.background.x = element_blank(),
         strip.background.y = element_blank(),
-        strip.text = element_text(angle = 0, vjust = -1, size = 16),
+        strip.text = element_text(angle = 0, vjust = -1, size = 13),
         legend.title = element_blank()
   )
 # p
@@ -122,6 +136,36 @@ for(i in seq_along(warming_targets)){
   
 }
 
+# no dispersal only
+p <- ggplot() +
+  geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = world, fill = "grey90", lwd = NA) +
+  geom_raster(data = df %>% filter(scenario == 'No dispersal'), 
+              aes(x=x, y=y, fill=value), alpha=0.8) +
+  scale_fill_viridis_c(breaks = seq(0,1,0.1),
+                       labels = seq(0,1,0.1),
+                       limits = c(0,1),
+                       option = 'C',na.value = "transparent") +
+  facet_wrap('warming',nrow = 2) +
+  theme_minimal() +
+  theme(text = element_text(size = 12),
+        panel.grid.major = element_line(color=NA),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        legend.position = 'bottom',
+        legend.key.width = unit(5,'line'),
+        strip.background = element_rect('white'),
+        strip.background.x = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text = element_text(angle = 0, vjust = -1, size = 12),
+        legend.title = element_blank()
+  )
+# p
+ggsave(paste0('figs/maps_RC_nodisp.jpg'),p,
+       width = 183,height = 120,dpi = 600,units = 'mm')
+# ggsave(paste0('figs/maps_RC.pdf'),p,
+#        width = 183,height = 200,units = 'mm')
 
 
 #> CONTRIBUTION T & Q --------------------------------------------------------------------------------------
