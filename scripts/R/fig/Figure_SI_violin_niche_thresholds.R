@@ -1,4 +1,4 @@
-source('R/4targets/MASTER.R')
+source('config.R')
 
 # read hist niches first
 library(foreach)

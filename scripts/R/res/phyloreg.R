@@ -94,6 +94,25 @@ cm2 <- cor(df %>%
             mutate_all(as.numeric), method = 'spearman'
 )
 
+source("scripts/R/fun/HighstatLibV10.R") # For VIFs
+# dfvif1 <- df %>%
+#   select(area,length, climate_zone, habitat, code, importance, foodtrophcat) %>% 
+#   fastDummies::dummy_cols(.) %>%
+#   select(-climate_zone, -habitat, -code, -importance, -foodtrophcat) %>% as.data.frame
+# colnames(dfvif1) <- sub(" ", "_", colnames(dfvif1))
+
+
+dfvif2 <- df %>% 
+  select('Range area' = area,'Body length' = length, 'Climate' = climate_zone, 
+         'Habitat type' = habitat, 'IUCN code' = code, 'Commercial imp.' = importance, 
+         'Trophic cat.' = foodtrophcat) %>% 
+  mutate_all(as.numeric) %>% as.data.frame
+colnames(dfvif2) <- sub(" ", "_", colnames(dfvif2))
+
+# corvif(dfvif1)
+tvif <- corvif(dfvif2)
+write.csv(tvif,'tabs/phyloreg_VIFs_discretized.csv')
+
 # library(psych)
 # cm <- mixedCor(df %>% 
 #                  select(area,length, climate_zone, habitat, code, importance, foodtrophcat) %>% 

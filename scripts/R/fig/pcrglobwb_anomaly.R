@@ -70,7 +70,7 @@ if(file.exists(source_layers)){
 
 #--------------------------------------------------------------------------------------
 # one plot for each variable at 4 different warming targets
-library(ggplot2); library(RColorBrewer); library(sf)
+library(ggplot2); library(RColorBrewer); library(sf); library(foreach); library(raster); library(dplyr)
 
 # base layers
 crs_custom <- "+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
@@ -214,7 +214,47 @@ p <- ggplot() +
   )
 # p
 
-ggsave(paste0(dir_mod,'figs/maps_pcrglobwb_anomaly_Qmi.jpg'),p,
+ggsave(paste0('figs/maps_pcrglobwb_anomaly_Qmi.jpg'),p,
+       width = 200,height = 130,dpi = 600,units = 'mm')
+
+
+# QMAX--------------------------------------------------------------------------
+dd <- df %>% filter(var == 'Qma') %>% mutate(value = round(value*100,0))
+dd$value[dd$value == Inf] <- max(dd$value[!is.infinite(dd$value)])
+dd$value[dd$value == -Inf] <- min(dd$value[!is.infinite(dd$value)])
+
+dd$value[dd$value > 100] <- 100
+
+
+# and draw
+p <- ggplot() +
+  geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = world, fill = 'grey90', lwd = NA) + # '#e4cead' yellow ochre
+  geom_tile(data = dd, aes(x=x, y=y, fill=value), alpha=0.8) +
+  scale_fill_gradient2(mid = 'grey90',
+                       midpoint = 0,
+                       breaks = seq(-100,100,25),
+                       labels = paste0(c(seq(-100,0,25),paste0('+',seq(25,100,25))),'%'),
+                       na.value = 'transparent') +
+  facet_wrap('warming',nrow = 2) +
+  theme_minimal() +
+  theme(text = element_text(size = 12),
+        panel.grid.major = element_line(color=NA),
+        panel.spacing = unit(0.1, "lines"),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        legend.position = 'bottom',
+        legend.key.width = unit(6,'line'),
+        strip.background = element_rect('white'),
+        strip.background.x = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text = element_text(angle = 0, vjust = -1, size = 12),
+        legend.title = element_blank()
+  )
+# p
+
+ggsave(paste0('figs/maps_pcrglobwb_anomaly_Qma.jpg'),p,
        width = 200,height = 130,dpi = 600,units = 'mm')
 
 
@@ -258,6 +298,47 @@ p <- ggplot() +
   )
 # p
 
-ggsave(paste0(dir_mod,'figs/maps_pcrglobwb_anomaly_Tma.jpg'),p,
+ggsave(paste0('figs/maps_pcrglobwb_anomaly_Tma.jpg'),p,
        width = 200,height = 130,dpi = 600,units = 'mm')
 
+# TMIN-----------------------------------------------------------------------
+dd <- df %>% filter(var == 'Tmi') %>% mutate(value = round(value*100,0))
+dd$value[dd$value == Inf] <- max(dd$value[!is.infinite(dd$value)])
+dd$value[dd$value == -Inf] <- min(dd$value[!is.infinite(dd$value)])
+
+dd$value[dd$value > 5] <- 6
+dd$value[dd$value < -5] <- -6
+
+
+# and draw
+p <- ggplot() +
+  geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
+  geom_sf(data = world, fill = 'grey90', lwd = NA) + # '#e4cead' yellow ochre
+  geom_tile(data = dd, aes(x=x, y=y, fill=value), alpha=0.8) +
+  scale_fill_gradient2(mid = 'grey90',
+                       low = scales::muted('blue'),
+                       high = scales::muted('red'),
+                       midpoint = 0,
+                       breaks = seq(-6,6,1),
+                       labels = paste0(c('<5',seq(-5,0,1),paste0('+',seq(1,5,1)),'>5'),'%'),
+                       na.value = 'transparent') +
+  facet_wrap('warming',nrow = 2) +
+  theme_minimal() +
+  theme(text = element_text(size = 12),
+        panel.grid.major = element_line(color=NA),
+        panel.spacing = unit(0.1, "lines"),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        legend.position = 'bottom',
+        legend.key.width = unit(6,'line'),
+        strip.background = element_rect('white'),
+        strip.background.x = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text = element_text(angle = 0, vjust = -1, size = 12),
+        legend.title = element_blank()
+  )
+# p
+
+ggsave(paste0('figs/maps_pcrglobwb_anomaly_Tmi.jpg'),p,
+       width = 200,height = 130,dpi = 600,units = 'mm')

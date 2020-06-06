@@ -132,6 +132,11 @@ names(BN) <- colnames(tab)[-1]
   geom_histogram() +
   theme_minimal())
 
+colnames(tab) <- c('id_no','Qmin','Qmax','Qzf','Qcv_low','Qcv_up','Tmax',
+                   'Tmin','Tcv_low','Tcv_up')
+
+colnames(tabN) <- c('Qmin','Qmax','Qzf','Qcv_low','Qcv_up','Tmax',
+                   'Tmin','Tcv_low','Tcv_up')
 
 #' First bivariate correlations
 cmN <- cor(tabN, use = "pairwise.complete.obs")
