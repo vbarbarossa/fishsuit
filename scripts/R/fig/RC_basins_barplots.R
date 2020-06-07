@@ -110,9 +110,13 @@ centr2$ws_id <- as.integer(raster::extract(ws_lyr,centr2))
 ws_size <- merge(ws_size,centr2,by = 'ws_id')
 # filter out multiple records by selecting the largest ted watershed
 ws_size <- foreach(i = unique(ws_size$ws_id),.combine = 'rbind') %do% {t = ws_size[ws_size$ws_id == i,]; return(t[which(t$Surf_area == max(t$Surf_area)),])}
+
+# ws_size <- ws_size[ws_size$sp_no >= 10,]
+
 # order to select largest watersheds
 ws_size <- ws_size[order(ws_size$area,decreasing = T),]
 row.names(ws_size) <- NULL
+
 
 number_of_largest_basins = 200 #to consider
 d1 <- foreach(i = ws_size$ws_id[1:number_of_largest_basins],.combine = 'rbind') %do% {
@@ -220,7 +224,7 @@ p <- ggplot(df,aes(y = value, x = name, fill = variable)) +
                     labels = c(expression('1.5'^o*C),expression('2.0'^o*C),expression('3.2'^o*C),expression('4.5'^o*C))) +
   scale_y_continuous(breaks = seq(0,1,0.25),labels = seq(0,1,0.25)) +
   guides(fill = guide_legend(title=NULL)) +
-  ylab('Average Local Cumulative Range Loss [-]') +
+  ylab('Average Potentially Affected Fraction [-]') +
   xlab(' ') +
   coord_flip(ylim = c(0,1.0001),expand = F) +
   facet_grid(continent ~ scenario,scales = 'free_y',space = 'free_y',switch = 'y') +
@@ -230,7 +234,9 @@ p <- ggplot(df,aes(y = value, x = name, fill = variable)) +
         axis.ticks.y = element_blank(),
         axis.line.x = element_line(),
         # legend.direction = 'horizontal',
-        legend.position = c(0.92,0.12),
+        panel.grid.major.x = element_line(linetype = 'dashed',color='black'),
+        legend.position = c(0.94,0.29),
+        # legend.background = element_blank(),
         strip.placement = 'outside',
         strip.background = element_blank(),
         panel.spacing = unit(1.2, "lines"))
@@ -259,7 +265,7 @@ p <- ggplot(df,aes(y = value, x = name, fill = variable)) +
                     labels = c(expression('1.5'^o*C),expression('2.0'^o*C),expression('3.2'^o*C),expression('4.5'^o*C))) +
   scale_y_continuous(breaks = seq(0,1,0.25),labels = c('',seq(0.25,1,0.25))) +
   guides(fill = guide_legend(title=NULL)) +
-  ylab('Average Local Cumulative Range Loss [-]') +
+  ylab('Average Potentially Affected Fraction [-]') +
   xlab(' ') +
   coord_flip(ylim = c(0,1.0001),expand = F) +
   facet_grid(continent~scenario,scales = 'free_y',space = 'free_y',switch = 'y') +
@@ -268,7 +274,8 @@ p <- ggplot(df,aes(y = value, x = name, fill = variable)) +
         panel.border = element_blank(),
         axis.ticks.y = element_blank(),
         axis.line.x = element_line(),
-        legend.position = c(0.92,0.027),
+        panel.grid.major.x = element_line(linetype = 'dashed',color='black'),
+        legend.position = 'none',
         strip.placement = 'outside',
         strip.background = element_blank(),
         panel.spacing = unit(1.5, "lines"))
@@ -276,5 +283,7 @@ p <- ggplot(df,aes(y = value, x = name, fill = variable)) +
 ggsave(paste0('figs/barplot_basins.jpg'),p,width = 200,height = 600,units='mm',dpi = 1000)
 ggsave(paste0('figs/barplot_basins.pdf'),p,width = 200,height = 600,units='mm')
 
+# note that for the final total figure only a manual filter was applied to filter out basins with less
+# than 25 species before L. 114 
 
 

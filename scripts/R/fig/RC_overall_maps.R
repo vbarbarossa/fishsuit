@@ -240,6 +240,79 @@ for(w in seq_along(warming_targets)){
 }
 
 
+#> CONTRIBUTION single variables --------------------------------------------------------------------------------------
+
+for(w in seq_along(warming_targets)){
+  
+  # compile raster layers, list of variables for 3.2deg
+  varnames <- c("Qmi","Qzf","Qma","Tma","Tmi")
+  
+  lst_ras <- lapply(varnames,function(x) rasterize_rel_losses(wtg = warming_targets[w],var = x))
+  names(lst_ras) <- varnames
+  
+  lst_ras_dsp <- lapply(varnames,function(x) rasterize_rel_losses(wtg = warming_targets[w],var = x,dispersal = TRUE))
+  names(lst_ras_dsp) <- varnames
+  
+  # convert to ggplot format
+  df <- rbind(
+    foreach(i = seq_along(varnames),.combine='rbind') %do% {
+      as(lst_ras[[i]] %>% projectRaster(.,crs=crs_custom) %>% mask(.,bb), "SpatialPixelsDataFrame") %>%
+        as.data.frame(.) %>%
+        mutate(varname = varnames[i], scenario = 'No dispersal') %>%
+        dplyr::select(x,y,value = val,varname,scenario)
+    },
+    foreach(i = seq_along(varnames),.combine='rbind') %do% {
+      as(lst_ras_dsp[[i]] %>% projectRaster(.,crs=crs_custom) %>% mask(.,bb), "SpatialPixelsDataFrame") %>%
+        as.data.frame(.) %>%
+        mutate(varname = varnames[i], scenario = 'Maximal dispersal') %>%
+        dplyr::select(x,y,value = val,varname,scenario)
+    }
+  ) %>%
+    # mutate(varname = forcats::fct_recode(varname, 'Streamflow' = 'Q_all', 'Water temperature' = 'T_all','Both' = 'both_QT')) %>%
+    mutate(scenario = factor(scenario, levels = c('No dispersal','Maximal dispersal')))
+  
+  # and draw
+  p <- ggplot() +
+    geom_sf(data = bb, fill = NA, color = "grey80", lwd = 0.1) +
+    geom_sf(data = graticules, fill = NA, color = "grey80", lwd = 0.1) +
+    geom_sf(data = world, fill = "grey90", lwd = NA) +
+    geom_raster(data = df, aes(x=x, y=y, fill=value), alpha=0.8) +
+    scale_fill_viridis_c(breaks = seq(0,1,0.1),
+                         labels = seq(0,1,0.1),
+                         limits = c(0,1),
+                         option = 'C',na.value = "transparent") +
+    facet_grid(varname~scenario) +
+    theme_minimal() +
+    theme(text = element_text(size = 12),
+          panel.grid.major = element_line(color=NA),
+          axis.text = element_blank(),
+          axis.title = element_blank(),
+          legend.position = 'bottom',
+          legend.key.width = unit(6,'line'),
+          strip.background = element_rect('white'),
+          strip.background.x = element_blank(),
+          strip.background.y = element_blank(),
+          strip.text = element_text(angle = 0, vjust = -1, size = 13),
+          legend.title = element_blank()
+    )
+  # p
+  ggsave(paste0('figs/maps_RC_single_variables_',warming_targets[w],'.jpg'),p,
+         width = 183,height = 170*5/3,dpi = 600,units = 'mm')
+  # ggsave(paste0('figs/maps_RC.pdf'),p,
+  #        width = 183,height = 200,units = 'mm')
+  
+  # save source files for figshare
+  for(i in seq_along(varnames)){
+    
+    writeRaster(lst_ras[[i]],paste0('figshare/local_cumulative_range_loss_no_dispersal_',warming_targets[w],'_',varnames[i],'.tif'),format = 'GTiff',overwrite = T)
+    writeRaster(lst_ras_dsp[[i]],paste0('figshare/local_cumulative_range_loss_max_dispersal_',warming_targets[w],'_',varnames[i],'.tif'),format = 'GTiff',overwrite = T)
+    
+  }
+  
+  
+}
+
+
 #> INITIAL RICHNESS -----------------------------------------------------------------------------------------------------
 
 lst_ras <- foreach(source = c('hadgem/SR_tab_rcp8p5_3.2C_2058.rds',

@@ -75,7 +75,7 @@ p <- ggplot(tab,aes(x=warmt,y=ESH_mean)) + #
   scale_x_discrete(labels=c(expression('1.5'^o*C),expression('2.0'^o*C),expression('3.2'^o*C),expression('4.5'^o*C))) +
   scale_y_reverse(breaks = c(0,25,50,75,100),limits = c(100,0),labels=paste0(c(0,25,50,75,100),'%')) +
   xlab(label = ' ') +
-  ylab(label = 'Percentage of range affected') +
+  ylab(label = 'Percentage of range threatened') +
   
   theme_bw() +
   coord_cartesian(expand=F) +
@@ -103,6 +103,7 @@ p <- ggplot(tab,aes(x=warmt,y=ESH_mean)) + #
     , strip.background = element_rect('white'),
     strip.background.x = element_blank(),
     strip.background.y = element_blank(),
+    axis.title.y = element_text(size = 9),
     strip.text = element_text(angle = 0, size = 16)
     
     
@@ -128,7 +129,7 @@ p <- ggplot(tab %>% filter(scenario == 'no dispersal'),aes(x=warmt,y=ESH_mean)) 
   scale_x_discrete(labels=c(expression('1.5'^o*C),expression('2.0'^o*C),expression('3.2'^o*C),expression('4.5'^o*C))) +
   scale_y_reverse(breaks = c(0,25,50,75,100),limits = c(100,0),labels=paste0(c(0,25,50,75,100),'%')) +
   xlab(label = ' ') +
-  ylab(label = 'Percentage of range affected') +
+  ylab(label = 'Percentage of range threatened') +
   
   theme_bw() +
   coord_cartesian(expand=F) +
@@ -164,7 +165,7 @@ ggsave(paste0('figs/violins_overall_RC_nodisp.pdf'),p,
 # save the table for figshare
 tab_wide <- tab %>% reshape2::dcast(.,id_no ~ warmt + scenario,value.var = 'ESH_mean') %>% as_tibble()
 species_names <- read_sf('proc/species_ranges_merged.gpkg') %>%
-  as_tibble() %>% dplyr::dplyr::select(-geom)
+  as_tibble() %>% dplyr::select(-geom)
 
 tab_wide <- right_join(species_names,tab_wide) %>%
   dplyr::select(-id_no)
@@ -204,7 +205,7 @@ p <- ggplot(d,aes(x=warmt,y=ESH)) + #
   # guides(fill = ' ') +
   scale_y_reverse() +
   xlab(label = ' ') +
-  ylab(label = 'Percentage of range affected [%]') +
+  ylab(label = 'Percentage of range threatened [%]') +
   facet_grid(g ~ scenario) +
   theme_bw() +
   theme(

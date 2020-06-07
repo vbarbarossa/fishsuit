@@ -82,16 +82,16 @@ df <- df %>%
 ## ------------------------------------------------------------------------
 # corrmatrix
 cm1 <- cor(df %>%
-            select(area,length, climate_zone, habitat, code, importance, foodtrophcat) %>% 
-            fastDummies::dummy_cols(.) %>%
-            select(-climate_zone, -habitat, -code, -importance, -foodtrophcat)
+             select(area,length, climate_zone, habitat, code, importance, foodtrophcat) %>% 
+             fastDummies::dummy_cols(.) %>%
+             select(-climate_zone, -habitat, -code, -importance, -foodtrophcat)
 )
 
 cm2 <- cor(df %>% 
-            select('Range area' = area,'Body length' = length, 'Climate' = climate_zone, 
+             select('Range area' = area,'Body length' = length, 'Climate' = climate_zone, 
                     'Habitat type' = habitat, 'IUCN code' = code, 'Commercial imp.' = importance, 
-                   'Trophic cat.' = foodtrophcat) %>% 
-            mutate_all(as.numeric), method = 'spearman'
+                    'Trophic cat.' = foodtrophcat) %>% 
+             mutate_all(as.numeric), method = 'spearman'
 )
 
 source("scripts/R/fun/HighstatLibV10.R") # For VIFs
@@ -343,3 +343,63 @@ p
 ggsave('figs/traits_barplots.jpg',p,width = 89,height = 80,units='mm',scale = 1,dpi = 600)
 # ggsave('figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
 
+# do one per warming target
+dp2 <- foreach(v = as.character(tab_res$var),.combine = 'rbind') %do% {
+  
+  t <- tab_res %>%
+    dplyr::select(-starts_with('RC_MEAN'),-starts_with('RC_SD')) %>%
+    filter(var == v)
+  
+  foreach(wt = warming_targets,.combine = 'rbind') %do%{
+    
+    data.frame(
+      var = v,
+      mean = c(t[,paste0('RC',wt,'_mean')],t[,paste0('RC',wt,'_dsp_mean')]),
+      variable = c('No dispersal','Maximal dispersal'),
+      wt = wt
+    )
+    
+  }
+  
+} %>%
+  as_tibble() %>%
+  mutate(var = forcats::fct_recode(var,
+                                   'Range area' = 'area',
+                                   'Body length' = 'length',
+                                   'Habitat type' = 'habitat',
+                                   'Climate' = 'climate_zone',
+                                   'IUCN code' = 'code',
+                                   'Commercial imp.' = 'importance',
+                                   'Trophic cat.' = 'foodtrophcat'))
+
+levels(dp2$variable) <- c(
+  paste0('Max dispersal\nλ=',lambdas[1,] %>% select(contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-'),'\nr=',lambdas[2,] %>% select(contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-')),
+  paste0('No dispersal\nλ=',lambdas[1,] %>% select(-contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-'),'\nr=',lambdas[2,] %>% select(-contains('dsp')) %>% range %>% round(2) %>% paste0(collapse = '-'))
+)
+
+levels(dp2$wt) <- c('1.5°C','2.0°C','3.2°C','4.5°C')
+
+p <- ggplot(dp2,aes(x=var, y=mean,fill=variable)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  # geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.4,position = position_dodge(width=0.9)) +
+  scale_fill_manual(values = viridis::viridis(10,option='C')[c(5,8)]) +
+  xlab('') +
+  ylab('Variable importance') +
+  coord_flip(expand = F) +
+  facet_grid(var~wt,scales = 'free_y',space = 'free_y') +
+  guides(fill = guide_legend(title=NULL,reverse = T)) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.x = element_line(),
+        legend.position = c(0.92,0.2),
+        strip.text.y = element_blank(),
+        panel.grid.major.x = element_line(linetype = 'dashed',color='black'),
+        strip.background = element_blank(),
+        panel.spacing = unit(0.5, "lines"),
+        text = element_text(size = 12))
+p
+
+ggsave('figs/traits_barplots_warming_levels.jpg',p,width = 89*4,height = 80*2,units='mm',scale = 0.6,dpi = 600)
+# ggsave('figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
