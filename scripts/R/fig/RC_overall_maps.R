@@ -297,7 +297,7 @@ for(w in seq_along(warming_targets)){
     )
   # p
   ggsave(paste0('figs/maps_RC_single_variables_',warming_targets[w],'.jpg'),p,
-         width = 183,height = 170*5/3,dpi = 600,units = 'mm')
+         width = 183,height = 170*4/3,dpi = 600,units = 'mm')
   # ggsave(paste0('figs/maps_RC.pdf'),p,
   #        width = 183,height = 200,units = 'mm')
   
