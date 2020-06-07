@@ -3,3 +3,15 @@
 .RData
 .Ruserdata
 *.Rproj
+test
+gfdl
+hadgem
+ipsl
+miroc
+noresm
+try*
+data
+proc
+figs
+tabs
+figshare

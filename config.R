@@ -1,7 +1,7 @@
 #----------------------------------------------------------------------------------
 #>> model run name & location
-model_name <- 'fishsuit_completeRun_warming_4targets'
-model_folder <- '/nfs/home2/valeriob/'
+model_name <- 'fishsuit'
+model_folder <- '/nfs/home2/valeriob/projects/'
 
 #----------------------------------------------------------------------------------
 #>> climate models & scenarios settings
@@ -15,16 +15,21 @@ model_type <- 'warming_targets' # or 'year_targets'
 warming_tab <- read.csv('thresholdYears_4targets.csv')
 colnames(warming_tab) <- c('model',warming_targets)
 
+# threshold for minimum flow to consider when filtering the pcrglobwb maps
+# in general a cross-sectional area in m2 = 2.77*Q^0.79 (https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2003WR002082)
+# then for a river of about 0.5 m2 section, flow has to be 0.1 m3/s
+flow_filter_threshold <- 0.1
+
 #----------------------------------------------------------------------------------
 #>> DIRECTORIES
-dir_master <- '/nfs/home2/valeriob/fishsuit/'
+dir_master <- paste0(model_folder,model_name,'/')
 
 dir_data <- paste0(dir_master,'data/')
 
 dir_model <- paste0(model_folder,model_name,'/')
 
 # source directory for PCR-GLOBWB output directories
-dir_src_pcrglobwb <- '/scratch-shared/jbosmans/'
+dir_src_pcrglobwb <- '/projects/0/milkun/'
 
 #----------------------------------------------------------------------------------
 #>> number of cores for parallelized scripts
@@ -50,8 +55,8 @@ preprocess_iucn_data <- FALSE
 #----------------------------------------------------------------------------------
 #>> MODEL OCCURRENCE
 # variables
-vars <- c('Qmi','Qzf','Tma')
-thresholds <- c('2.5','97.5','97.5')
+vars <- c('Qmi','Qzf','Qma','Tma','Tmi')
+thresholds <- c('2.5','97.5','100.0','97.5','2.5')
 
 # minimum number of grid cells per species
 min_no_grid_cells <- 10
@@ -59,6 +64,6 @@ filter_lentic_out <- FALSE
 
 #----------------------------------------------------------------------------------
 #>> CUSTOM FUNCTIONS
-source('scripts/R/functions.R')
+source('scripts/R/fun/generic.R')
 
 
