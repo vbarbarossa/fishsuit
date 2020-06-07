@@ -1,5 +1,5 @@
 # fishsuit
-Framework to model geographical ranges of freshwater fish species based on streamflow and water temperature
+Framework to model climate change and dam-driven fragmentation impacts on the geographical ranges of freshwater fish species
 
 This is a beta release. More details on input data and streamline of processes will be made available upon acceptance of the related manuscript. For further information, please contact Valerio Barbarossa (v.barbarossa@fnwi.ru.nl)
 
@@ -40,3 +40,4 @@ This is a beta release. More details on input data and streamline of processes w
 * scripts/R/fun/map_variable2species.R: function to retrieve quantiles of an environmental variable for a species range
 
 * scripts/R/fun/range2table.R: function that convert polygon ranges to single spatial points
+
