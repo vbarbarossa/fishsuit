@@ -10,7 +10,7 @@ library(foreach); library(dplyr); library(ggplot2); library(RColorBrewer); libra
 
 build_tab <- function(dispersal = FALSE){
   suffix <- ''
-  if(dispersal) suffix <- '_dispersal'
+  if(dispersal) suffix <- '_dispersal2'
   return(
     foreach(clmod = climate_models,.combine='rbind') %do% {
       read.csv(paste0('proc/',clmod,'/ESH_tab',suffix,'.csv')) %>%

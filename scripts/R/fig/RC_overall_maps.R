@@ -30,10 +30,11 @@ rasterize_rel_losses <- function(wtg,var = 'all',dir_root = 'proc/',dispersal=FA
     
     if(!dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_',
                                        atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
-    if(dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_dispersal_',
+    if(dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_dispersal2_',
                                       atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
     
-    t$val <- (t$occ - t[,var])/t$occ
+    if(!disperal) t$val <- (t$occ - t[,var])/t$occ
+    if(dispersal) t$val <- (t[,paste0('occ_',var)] - t[,var])/t[,paste0('occ_',var)]
     
     return(t[,'val'])
   }

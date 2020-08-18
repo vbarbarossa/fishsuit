@@ -18,26 +18,28 @@ attr.tab <- attr.tab[!is.na(attr.tab$year),]
 row.names(attr.tab) <- NULL
 
 # function that takes in input the warming target and variable and gives the rasterized relative losses per grid cell
-rasterize_rel_losses <- function(wtg,var = 'all',dir_root = 'fishsuit_completeRun_warming_4targets',dispersal=FALSE){
+rasterize_rel_losses <- function(wtg,var = 'all',dir_root = 'proc/',dispersal=FALSE){
   
+  template <- temp %>% dplyr::select(row_no,geometry)
   atab <- attr.tab[attr.tab$warmt == wtg,]
   
   tab <- foreach(x = 1:nrow(atab),.combine='cbind') %do%{
     
     if(!dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_',
                                        atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
-    if(dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_',
-                                      atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'_dispersal3.rds'))
+    if(dispersal) t <- readRDS(paste0(dir_root,'/',atab$clmod[x],'/SR_tab_dispersal2_',
+                                      atab$scen[x],'_',atab$warmt[x],'C_',atab$year[x],'.rds'))
     
-    t@data$val <- (t@data$occ - t@data[,var])/t@data$occ
+    if(!disperal) t$val <- (t$occ - t[,var])/t$occ
+    if(dispersal) t$val <- (t[,paste0('occ_',var)] - t[,var])/t[,paste0('occ_',var)]
     
     return(t[,'val'])
   }
-  tab@data <- data.frame(val = rowMedians(as.matrix(tab@data)))
-  tab <- tab[!is.na(tab@data$val),]
+  template$val <- rowMedians(as.matrix(tab))
+  template <- template[!is.na(template$val),]
   
   return(
-    raster(as(tab[,'val'], "SpatialPixelsDataFrame"))
+    raster(as(as_Spatial(template[,'val']), "SpatialPixelsDataFrame"))
   )
   
 }

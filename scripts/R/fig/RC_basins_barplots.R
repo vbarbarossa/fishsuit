@@ -61,11 +61,11 @@ lst_tabs_dsp <- foreach(n = seq_along(warming_targets)) %do% {
     
     if(x == 1){
       return(
-        cbind(tab$occ,(tab$occ - tab$all)/tab$occ)
+        cbind(tab$occ_all,(tab$occ_all - tab$all)/tab$occ_all)
       )
     }else{
       return(
-        (tab$occ - tab$all)/tab$occ
+        (tab$occ_all - tab$all)/tab$occ_all
       )
     }
   })
@@ -89,7 +89,7 @@ tab_dsp <- cbind(data.frame(occ=lst_tabs_dsp[[1]][,1]),
 
 
 by.ws <- split(h,f=h$ws)
-# look up langerst watersheds
+# look up largest watersheds
 ws_size <- do.call(
   'rbind',
   lapply(by.ws,function(x) data.frame(ws_id = unique(x$ws),area = sum(x$area,na.rm=T)))
