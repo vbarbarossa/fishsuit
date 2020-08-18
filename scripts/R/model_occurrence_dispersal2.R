@@ -55,7 +55,7 @@ cat('modeling HABITAT SUITABILITY of each species..\n')
 nich <- niche %>% as.data.frame()
 colnames(nich) <- c('id_no',paste0(vars,'_th'))
 
-dir_out <- dir_(paste0('proc/',clmod,'/modelled_occurrence_dispersal/'))
+dir_out <- dir_(paste0('proc/',clmod,'/modelled_occurrence_dispersal2/'))
 
 attr.tab <- foreach(i = seq_along(warming_targets),.combine = 'rbind') %do% {
   data.frame(
@@ -261,7 +261,7 @@ ESH_tab <-
 row.names(ESH_tab) <- NULL
 ESH_tab$comboscen <- as.factor(ESH_tab$comboscen)
 
-out <- paste0('proc/',clmod,'/ESH_tab_dispersal.csv')
+out <- paste0('proc/',clmod,'/ESH_tab_dispersal2.csv')
 write.csv(ESH_tab,out,row.names = F)
 
 cat('successfully written to ',out,'\n')
