@@ -6,7 +6,7 @@ library(foreach); library(dplyr)
 # make sure tabs directory exists
 dir_('tabs')
 
-for(suffix in c('','_dispersal')){
+for(suffix in c('','_dispersal2')){
   
   # compile master table with results from the modelling
   tab <- foreach(clmod = climate_models,.combine='rbind') %do% {
