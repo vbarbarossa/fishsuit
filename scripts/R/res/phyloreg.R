@@ -156,9 +156,27 @@ fish <- as.data.frame(df)
 #' Load phylogenetic tree for bony fish species
 
 fish.tre<-read.tree("data/betancurt-R et al 2017.tre")#reading phylogenetic tree (Phylogenetic classification of bony fishes)
-
+# fish.tre <- fishtree::fishtree_phylogeny(fish$binomial)
 # extended stochastic version
-# fish.tre <- fishtree_complete_phylogeny()[[1]]
+# fish.tre_sto <- fishtree::fishtree_complete_phylogeny(fish$binomial)[[1]]
+
+# compare the trees
+# get taxonomy from fishbase
+t_f <- rfishbase::fishbase %>% mutate(binomial = paste0(Genus,' ',Species))
+t_s <- t_f %>% filter(binomial %in% (fishtree::fishtree_complete_phylogeny(fish$binomial)[[1]]$tip.label %>% gsub('_',' ',.)))
+t_o <- t_f %>% filter(binomial %in% (fishtree::fishtree_phylogeny()$tip.label %>% gsub('_',' ',.)))
+
+diag_os <- foreach(i = c('Genus','SubFamily','Family','Order'),.combine = 'rbind') %do% {
+  data.frame(
+    ratio_perc = sum(unique(t_s %>% pull(i)) %in% unique(t_o %>% pull(i)))/length(unique(t_s %>% pull(i))) * 100,
+    no_sp_not_covered = t_s %>% filter(get(i) %in% unique(t_s %>% pull(i))[!unique(t_s %>% pull(i)) %in% unique(t_o %>% pull(i))]) %>% nrow
+  )
+}
+row.names(diag_os) <- c('Genus','SubFamily','Family','Order')
+
+# how many species do not have genus covered?
+i = 'Genus'
+t_s %>% filter(Genus %in% unique(t_s %>% pull(i))[!unique(t_s %>% pull(i)) %in% unique(t_o %>% pull(i))]) %>% nrow
 
 str(fish.tre)#Phylogenetic information for more than 11000 fish species!!!
 tips<-fish.tre$tip.label#species labels contained in the tree
@@ -192,6 +210,9 @@ exclude.sp<-as.data.frame(names.full2$data_not_tree)
 fish2<-fish[ !(fish$species2 %in% exclude.sp$`names.full2$data_not_tree`), ]
 #Now are all species in the tree contained in the dataframe and viceversa
 
+fish_o <- fish2
+
+
 #' then we fit the PGLM model. There are two main of parameters to keep into account here
 #' 
 #' 1. corPagel is a variation of the brownian motion used to represent the phylogenentic evolution
@@ -205,28 +226,23 @@ cat('Dataset has:',nrow(fish2), 'species with phylogenetic info')
 # define settings for Pagel's covariance matrix
 CP <- corPagel(value=1, phy=full.tree2,fixed = FALSE)
 
+qq_df <- data.frame(matrix(ncol=8,nrow = nrow(fish2)))
+colnames(qq_df) <- colnames(df)[grep('RC',colnames(df))]
+
 for(var in colnames(df)[grep('RC',colnames(df))]){
   
   dfsel <- fish2
   dfsel$RC <- log10(dfsel[,var])
   
-  fit <- gls(log10(RC) ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
-             correlation=CP,
-             method = "ML",
-             data=dfsel)
+  # the below commented is run on the cluster in parallel
+  # fit <- gls(log10(RC) ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
+  #            correlation=CP,
+  #            method = "ML",
+  #            data=dfsel)
   
-  # y = qnorm( c(0.25, 0.75))
-  # x = quantile(residuals(fit,type = 'pearson'), c(0.25,0.75), type = 5)
-  # 
-  # slope <- diff(y) / diff(x)
-  # int   <- y[1] - slope * x[1]
-  # qqnorm(fit, abline = c(int,slope), grid = T)
-  # 
-  # qqp <- ggplot(data.frame(y = residuals(fit,type = 'pearson')), aes(sample = y)) + 
-  #   stat_qq() + stat_qq_line() + 
-  #   ylab('Standardized residuals') +
-  #   xlab('Quantiles of standard normal') +
-  #   theme_minimal()
+  fit <- readRDS(paste0('proc/phyloreg_fit_',var,'.rds'))
+  
+  qq_df[,var] <- residuals(fit,type = 'pearson')
   
   coefdf <- as.data.frame(summary(fit)$tTable) %>%
     mutate(variable = row.names(.)) %>%
@@ -303,6 +319,25 @@ write.csv(coef_res %>% select(variable,contains('dsp')),'tabs/phyloreg_coefficie
 
 #' and plot it
 #' 
+
+# QQ PLOT OF STD RESIDUALS
+# y = qnorm( c(0.25, 0.75))
+# x = quantile(residuals(fit,type = 'pearson'), c(0.25,0.75), type = 5)
+# 
+# slope <- diff(y) / diff(x)
+# int   <- y[1] - slope * x[1]
+# qqnorm(fit, abline = c(int,slope), grid = T)
+# 
+(qqp <- ggplot(tidyr::gather(qq_df), aes(sample = value)) +
+    stat_qq(size = 0.5) + stat_qq_line( color = 'blue') +
+    ylab('Standardized residuals') +
+    xlab('Quantiles of standard normal') +
+    facet_wrap('key', ncol =2) +
+    theme_bw() +
+    theme(strip.background = element_blank())
+)
+
+ggsave('figs/phyloreg_qqplots.jpg',qqp,width = 89,height = 89*2,units='mm',scale = 1,dpi = 600)
 
 # format the table for ggplot
 dp <- foreach(v = as.character(tab_res$var),.combine = 'rbind') %do% {
