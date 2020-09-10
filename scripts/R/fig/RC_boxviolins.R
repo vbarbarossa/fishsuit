@@ -62,7 +62,7 @@ tab <- rbind(
 
 
 p <- ggplot(tab,aes(x=warmt,y=ESH_mean)) + #
-  geom_violin(aes(fill = scenario),lwd = .5,color='transparent') + #
+  geom_violin(aes(fill = scenario),lwd = .5,scale = 'area',color='transparent') + #
   geom_boxplot(aes(color = scenario),fill='white',outlier.color = 'transparent',
                width = 0.08,lwd=0.5,coef=0,notch = 1,position = position_dodge(0.9)) +
   

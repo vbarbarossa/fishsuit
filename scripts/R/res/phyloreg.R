@@ -156,6 +156,10 @@ fish <- as.data.frame(df)
 #' Load phylogenetic tree for bony fish species
 
 fish.tre<-read.tree("data/betancurt-R et al 2017.tre")#reading phylogenetic tree (Phylogenetic classification of bony fishes)
+
+# extended stochastic version
+# fish.tre <- fishtree_complete_phylogeny()[[1]]
+
 str(fish.tre)#Phylogenetic information for more than 11000 fish species!!!
 tips<-fish.tre$tip.label#species labels contained in the tree
 fish.tre$Nnode#Node numbers
@@ -204,12 +208,25 @@ CP <- corPagel(value=1, phy=full.tree2,fixed = FALSE)
 for(var in colnames(df)[grep('RC',colnames(df))]){
   
   dfsel <- fish2
-  dfsel$RC <- dfsel[,var]
+  dfsel$RC <- log10(dfsel[,var])
   
-  fit <- gls(RC ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
+  fit <- gls(log10(RC) ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
              correlation=CP,
              method = "ML",
              data=dfsel)
+  
+  # y = qnorm( c(0.25, 0.75))
+  # x = quantile(residuals(fit,type = 'pearson'), c(0.25,0.75), type = 5)
+  # 
+  # slope <- diff(y) / diff(x)
+  # int   <- y[1] - slope * x[1]
+  # qqnorm(fit, abline = c(int,slope), grid = T)
+  # 
+  # qqp <- ggplot(data.frame(y = residuals(fit,type = 'pearson')), aes(sample = y)) + 
+  #   stat_qq() + stat_qq_line() + 
+  #   ylab('Standardized residuals') +
+  #   xlab('Quantiles of standard normal') +
+  #   theme_minimal()
   
   coefdf <- as.data.frame(summary(fit)$tTable) %>%
     mutate(variable = row.names(.)) %>%
