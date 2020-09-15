@@ -337,7 +337,18 @@ write.csv(coef_res %>% select(variable,contains('dsp')),'tabs/phyloreg_coefficie
     theme(strip.background = element_blank())
 )
 
+(qqp_nl <- ggplot(tidyr::gather(qq_df), aes(sample = value)) +
+    stat_qq(size = 0.5) + 
+    ylab('Standardized residuals') +
+    xlab('Quantiles of standard normal') +
+    facet_wrap('key', ncol =2) +
+    theme_bw() +
+    theme(strip.background = element_blank())
+)
+
 ggsave('figs/phyloreg_qqplots.jpg',qqp,width = 89,height = 89*2,units='mm',scale = 1,dpi = 600)
+ggsave('figs/phyloreg_qqplots_noline.jpg',qqp_nl,width = 89,height = 89*2,units='mm',scale = 1,dpi = 600)
+
 
 # format the table for ggplot
 dp <- foreach(v = as.character(tab_res$var),.combine = 'rbind') %do% {
@@ -406,7 +417,7 @@ dp2 <- foreach(v = as.character(tab_res$var),.combine = 'rbind') %do% {
     
     data.frame(
       var = v,
-      mean = c(t[,paste0('RC',wt,'_mean')],t[,paste0('RC',wt,'_dsp_mean')]),
+      mean = c(as.data.frame(t)[,paste0('RC',wt,'_mean')],as.data.frame(t)[,paste0('RC',wt,'_dsp_mean')]),
       variable = c('No dispersal','Maximal dispersal'),
       wt = wt
     )
