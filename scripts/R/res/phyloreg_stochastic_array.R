@@ -108,8 +108,9 @@ fit_model <- function(j){
   if(j == 1){
     CP <- corPagel(value=1, phy=full.tree2,fixed = FALSE)
   }else{
-    alpha_val <- readRDS(paste0('proc/phyloreg_fit_stoch_',var,'/1.rds'))
-    CP <- corPagel(value=alpha_val, phy=full.tree2,fixed = TRUE)
+    fit1 <- readRDS(paste0('proc/phyloreg_fit_stoch_',var,'/1.rds'))
+    lamb_val <- as.numeric(fit1$modelStruct)
+    CP <- corPagel(value=lamb_val, phy=full.tree2,fixed = TRUE)
   }
   
   fit <- gls(RC ~ area + length + habitat + climate_zone + code + importance + foodtrophcat,
@@ -122,7 +123,7 @@ fit_model <- function(j){
 }
 
 # first calibrate lambda based on the first repetition
-fit_model(1)
+# fit_model(1) # <<<<<<<<<<momentarily commented as the first run had gone through, the rest not..
 
 # then run in parallel the rest
 parallel::mcmapply(fit_model,as.list(2:100),SIMPLIFY = FALSE,mc.cores = 20)
