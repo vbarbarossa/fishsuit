@@ -126,6 +126,6 @@ fit_model <- function(j){
 # fit_model(1) # <<<<<<<<<<momentarily commented as the first run had gone through, the rest not..
 
 # then run in parallel the rest
-parallel::mcmapply(fit_model,as.list(2:100),SIMPLIFY = FALSE,mc.cores = 20)
+parallel::mcmapply(fit_model,as.list(2:100),SIMPLIFY = FALSE,mc.cores = 5)
 
 
