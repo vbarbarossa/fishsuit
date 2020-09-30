@@ -105,8 +105,8 @@ for(var in colnames(df)[grep('RC',colnames(df))]){
   cvtab <- apply(coef_array, c(1,2), function(x) sd(x)/mean(x)*100)
   signtab <- apply(coef_array, c(1,2), function(x) sum(sign(x))/length(fit_list))
   
-  write.csv(cvtab,paste0(dir_('tabs/phyloreg_stochastic_diag/cv_',var,'.csv')),row.names = F)
-  write.csv(cvtab,paste0(dir_('tabs/phyloreg_stochastic_diag/sign_',var,'.csv')),row.names = F)
+  write.csv(cvtab,paste0(dir_('tabs/phyloreg_stochastic_diag/'),'cv_',var,'.csv'),row.names = F)
+  write.csv(cvtab,paste0(dir_('tabs/phyloreg_stochastic_diag/'),'sign_',var,'.csv'),row.names = F)
   
   dfsel <- fish2
   dfsel$RC <- log10( ( dfsel[,var]*(nrow(dfsel)-1)+0.5 )/nrow(dfsel)  )
