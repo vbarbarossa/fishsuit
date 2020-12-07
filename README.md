@@ -1,9 +1,13 @@
 # fishsuit
-Framework to model climate change and dam-driven fragmentation impacts on the geographical ranges of freshwater fish species
+Framework to model climate change impacts on the geographical ranges of freshwater fish species
 
-This is a beta release. More details on input data and streamline of processes will be made available upon acceptance of the related manuscript. For further information, please contact Valerio Barbarossa (v.barbarossa@fnwi.ru.nl)
+*Please, refer to the publication for additional details: Barbarossa et al., 2021. Threats of global warming to the world's freshwater fishes. Nature Communications.*
 
 # R Scripts
+
+* config.R/config_local.R: global parameters used in the R scripts
+
+* exec.R: generates batch file for streamlined execution to be run on a linux slurm cluster
 
 ## Preprocessing
 
@@ -13,11 +17,29 @@ This is a beta release. More details on input data and streamline of processes w
 
 * scripts/R/preprocess/species2points.R: this script transforms the polygon ranges of the species to spatial points based on the resolution of the environmental variables, to use a matrix-like framework to model range changes
 
+* scripts/R/preprocess/species2points_dispersal.R: this script transforms the polygon ranges of the species to spatial points based on the resolution of the environmental variables, to use a matrix-like framework to model range changes
+
 ## Modelling
 
-* scripts/R/mod/map_thresholds.R
+* scripts/R/map_thresholds.R: mapping of species-specific thresholds
 
-* cripts/R/mod/model_occurrence.R
+* scripts/R/model_occurrence.R: modelling of species-specific percentage of threatened range under no dispersal assumption
+
+* scripts/R/model_occurrence_dispersal.R: DEPRECATED 
+
+* scripts/R/model_occurrence_dispersal2.R: modelling of species-specific percentage of threatened range under maximal dispersal assumption
+
+## Phyloenetic regression
+
+* scripts/R/res/phyloreg_stochastic_array.R: runs phylogenetic regression based on stochastically generated trees
+
+* scripts/R/res/phyloreg_stochastic.R: tabulates results of coefficients and variable importance for the phylogenetic regression as described in
+
+* scripts/R/res/phyloreg.R: DEPRECATED
+
+* scripts/R/res/phyloreg_array.R: DEPRECATED
+
+* scripts/R/res/phyloreg_explore.R: DEPRECATED
 
 ## Extras
 
@@ -33,11 +55,44 @@ This is a beta release. More details on input data and streamline of processes w
 
 * scripts/R/xtr/thresholds_selection.R: analyze thresholds mapped for the species and check multicollinearity
 
+* scripts/R/xtr/extract_climate_zones.R: assign a climate zone to each species
+
+* scripts/R/xtr/reference_species_ranges2hybas12.R: DEPRECATED
+
 ## Functions
 
 * scripts/R/fun/generic.R: generic functions
+
+* scripts/R/fun/HighstatLibV10.R: function to calculate VIFs from Highland Statistics LTD
 
 * scripts/R/fun/map_variable2species.R: function to retrieve quantiles of an environmental variable for a species range
 
 * scripts/R/fun/range2table.R: function that convert polygon ranges to single spatial points
 
+* scripts/R/fun/variable_importance.R: function to calculate variable importance
+
+## Figures
+
+*Figure numbers refer to Barbarossa et al., 2021. Threats of global warming to the world's freshwater fishes. Nature Communications.*
+
+* scripts/R/fig/compare_CTmax.R: Figure S7
+
+* scripts/R/fig/compare_SR_basin_w_tedesco.R: Figure S10
+
+* scripts/R/fig/pcrglobwb_anomaly.R: Figure S5
+
+* scripts/R/fig/radarplot_order.R: Figure S6
+
+* scripts/R/fig/RC_basins_barplots.R: Figures 3 and S4
+
+* scripts/R/fig/RC_boxviolins.R: Figures 1 and S1
+
+* scripts/R/fig/RC_overall_maps: Figures 2, 4, S2, S3, S9
+
+* scripts/R/fig/thresholds_violin_plots.R: Figure S8
+
+# Additional files
+
+* thresholYears_4targets.csv: year which the specified warming target is reached at for the different GCM-RCP combinations
+
+* several batch files used for slurm execturion of the scripts
