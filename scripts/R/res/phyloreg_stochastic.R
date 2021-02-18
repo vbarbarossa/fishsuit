@@ -350,5 +350,10 @@ p <- ggplot(dp2,aes(x=var, y=mean,fill=variable)) +
 p
 
 ggsave('figs/traits_barplots_warming_levels_stochastic.jpg',p,width = 89*4,height = 80*2,units='mm',scale = 0.6,dpi = 600)
+
+ggsave('figs/traits_barplots_warming_levels_stochastic_l.jpg',p,width = 213.6,height = 96,units='mm',dpi = 600)
+ggsave('figs/traits_barplots_warming_levels_stochastic_l.pdf',p,width = 210,height = 95,units='mm',dpi = 600)
+
+ggsave('figs/traits_barplots_warming_levels_stochastic.jpg',p,width = 89*4,height = 80*2,units='mm',scale = 0.6,dpi = 600)
 # ggsave('figs/traits_barplots.pdf',p,width = 89,height = 80,units='mm',scale = 1)
 

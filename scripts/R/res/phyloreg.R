@@ -6,7 +6,7 @@ valerioUtils::libinv(c(
 
 source('scripts/R/fun/variable_importance.R') #function provided by Mirza for variable importance
 
-df <- read.csv('figshare/RC_by_species.csv') %>%
+df <- read.csv('figshare/RT_species.csv') %>%
   as_tibble()
 colnames(df) <- c('binomial',paste0('RC',rep(c('1.5','2.0','3.2','4.5'),each=2),c('_dsp','')))
 

@@ -19,7 +19,8 @@ library(sf); library(dplyr)
 points <- read_sf('data/hybas12_points_nolakes.gpkg')
 
 # load species shapefile
-sp <- read_sf('proc/species_ranges_raw.gpkg')
+# sp <- read_sf('proc/species_ranges_raw.gpkg')
+sp <- read_sf('proc/species_ranges_merged.gpkg')
 
 # reference to hydrobasins level 12
 lst <- st_contains(sp,points,sparse = T)
@@ -41,5 +42,6 @@ tab <- lapply(seq_along(lst),function(i){
 }
 ) %>% do.call('rbind',.) %>% distinct()
 
-saveRDS(tab,'proc/species_ranges_raw_on_hybas12.rds')
-write.csv(tab,'proc/species_ranges_raw_on_hybas12.csv',row.names = F)
+saveRDS(tab,'proc/species_ranges_merged_on_hybas12.rds')
+# saveRDS(tab,'proc/species_ranges_raw_on_hybas12.rds')
+# write.csv(tab,'proc/species_ranges_raw_on_hybas12.csv',row.names = F)

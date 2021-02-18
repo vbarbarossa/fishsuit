@@ -111,7 +111,7 @@ p <- ggplot() +
                        option = 'C',na.value = "transparent") +
   facet_grid(warming~scenario) +
   theme_minimal() +
-  theme(text = element_text(size = 13),
+  theme(text = element_text(size = 12),
         panel.grid.major = element_line(color=NA),
         axis.text = element_blank(),
         axis.title = element_blank(),
@@ -120,12 +120,18 @@ p <- ggplot() +
         strip.background = element_rect('white'),
         strip.background.x = element_blank(),
         strip.background.y = element_blank(),
-        strip.text = element_text(angle = 0, vjust = -1, size = 13),
+        strip.text = element_text(angle = 0, vjust = -1, size = 12),
         legend.title = element_blank()
   )
 # p
-ggsave(paste0('figs/maps_RC.jpg'),p,
-       width = 183,height = 200,dpi = 600,units = 'mm')
+# ggsave(paste0('figs/maps_RC.jpg'),p,
+#        width = 183,height = 200,dpi = 600,units = 'mm')
+ggsave(paste0('figs/maps_RC_l.jpg'),p,
+       width = 210,height = 229.51,dpi = 600,units = 'mm')
+ggsave(paste0('figs/maps_RC_l.tiff'),p,
+       width = 210,height = 229.51,dpi = 600,units = 'mm')
+ggsave(paste0('figs/maps_RC_l.pdf'),p,
+       width = 210,height = 229.51,dpi = 600,units = 'mm')
 # ggsave(paste0('figs/maps_RC.pdf'),p,
 #        width = 183,height = 200,units = 'mm')
 
@@ -220,12 +226,19 @@ for(w in seq_along(warming_targets)){
           strip.background = element_rect('white'),
           strip.background.x = element_blank(),
           strip.background.y = element_blank(),
-          strip.text = element_text(angle = 0, vjust = -1, size = 13),
+          strip.text = element_text(angle = 0, vjust = -1, size = 12),
           legend.title = element_blank()
     )
   # p
-  ggsave(paste0('figs/maps_RC_QTcontribution_',warming_targets[w],'.jpg'),p,
-         width = 183,height = 170,dpi = 600,units = 'mm')
+  # ggsave(paste0('figs/maps_RC_QTcontribution_',warming_targets[w],'.jpg'),p,
+  #        width = 183,height = 170,dpi = 600,units = 'mm')
+  ggsave(paste0('figs/maps_RC_QTcontribution_',warming_targets[w],'_l.jpg'),p,
+         width = 210,height = 195.08,dpi = 600,units = 'mm')
+  ggsave(paste0('figs/maps_RC_QTcontribution_',warming_targets[w],'_l.tiff'),p,
+         width = 210,height = 195.08,dpi = 600,units = 'mm')
+  ggsave(paste0('figs/maps_RC_QTcontribution_',warming_targets[w],'_l.pdf'),p,
+         width = 210,height = 195.08,dpi = 600,units = 'mm')
+  
   # ggsave(paste0('figs/maps_RC.pdf'),p,
   #        width = 183,height = 200,units = 'mm')
   
