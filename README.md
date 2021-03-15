@@ -2,7 +2,9 @@
 Framework to model climate change impacts on the geographical ranges of freshwater fish species
 
 *Please, refer to the publication for additional details:* 
+ 
 *Barbarossa, V., Bosmans, J., Wanders, N. et al. Threats of global warming to the world’s freshwater fishes. Nat Commun 12, 1701 (2021). https://doi.org/10.1038/s41467-021-21655-w*
+ 
 
 # R Scripts
 
