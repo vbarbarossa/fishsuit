@@ -164,7 +164,7 @@ for(i in seq_along(metrics)){
   
   writeRaster(
     mask(extend(do.call(mosaic, v),extent(raster(Qavbin))),Qavbin),
-    ppaste0(dir_merged,metrics[i],'_',clmod,'_',scen,'_',years[1],'-',years[length(years)],'.tif'),
+    paste0(dir_merged,metrics[i],'_',clmod,'_',scen,'_',years[1],'-',years[length(years)],'.tif'),
     format="GTiff", overwrite=TRUE
   )
   
