@@ -133,14 +133,14 @@ metrics <- c(varsQ,varsT)
 # create binary layer based on long-term average annual flow
 v <- list()
 for(a in seq_along(areas)){
-  v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/Qav_',scen,'.tif')) #<<<here should always be hist
+  v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/Qav_',clmod,'_',scen,'_',years[1],'-',years[length(years)],'.tif')) #<<<here should always be hist
 }
 
 names(v)[1:2] <- c('x', 'y')
 v$fun <- sum
 v$na.rm <- TRUE
 
-Qavbin <- paste0(dir_merged,'Qavbin.tif')
+Qavbin <- paste0(dir_merged,'Qavbin_',clmod,'_',scen,'_',years[1],'-',years[length(years)],'.tif')
 
 l <- do.call(mosaic, v) >= flow_filter_threshold
 NAvalue(l) <- 0 # set 0 to NA
@@ -155,7 +155,7 @@ for(i in seq_along(metrics)){
   
   v <- list()
   for(a in seq_along(areas)){
-    v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/',metrics[i],'_',scen,'.tif'))
+    v[[a]] <- raster(paste0(dir_pcrglobwb_out,areas[a],'/',metrics[i],'_',clmod,'_',scen,'_',years[1],'-',years[length(years)],'.tif'))
   }
   
   names(v)[1:2] <- c('x', 'y')
