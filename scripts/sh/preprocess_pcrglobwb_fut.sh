@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH -N 1
-#SBATCH --array 1-20
 #SBATCH -t 3:00:00
 #SBATCH -p normal
 #SBATCH --output=diag/preprocess_pcrglobwb_fut_year_%a.out
